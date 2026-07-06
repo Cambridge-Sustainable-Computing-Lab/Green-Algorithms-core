@@ -7,14 +7,14 @@
 # ------------------------------------------------------------------
 
 import pandas as pd
-from src.ga_core.computation.carbon import CarbonCalculator
-from src.ga_core.computation.carbon_intensity.ci_store import CIStorageBackend
-from src.ga_core.computation.context_metrics import ContextMetricsCalculator
-from src.ga_core.computation.energy import EnergyCalculator
-from src.ga_core.data_models.cluster_info_model import ClusterInfo
-from src.ga_core.ingestion.workload_managers import BaseWorkloadManager
-from src.ga_core.computation.carbon_intensity.carbon_intensity import CarbonIntensityService
-from src.ga_core.utils import utils
+from ga_core.computation.carbon import CarbonCalculator
+from ga_core.computation.carbon_intensity.ci_store import CIStorageBackend
+from ga_core.computation.context_metrics import ContextMetricsCalculator
+from ga_core.computation.energy import EnergyCalculator
+from ga_core.data_models.cluster_info_model import ClusterInfo
+from ga_core.ingestion.workload_managers import BaseWorkloadManager
+from ga_core.computation.carbon_intensity.carbon_intensity import CarbonIntensityService
+from ga_core.utils import utils
 
 class HPCDataProcessor:
     """

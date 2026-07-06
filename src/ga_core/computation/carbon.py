@@ -6,8 +6,8 @@
 
 import pandas as pd
 from datetime import datetime, time, timedelta
-from src.ga_core.data_models.cluster_info_model import ClusterInfo
-from src.ga_core.data_models.job_emissions_record import JobEmissionRecord
+from ga_core.data_models.cluster_info_model import ClusterInfo
+from ga_core.data_models.job_emissions_record import JobEmissionRecord
 
 class CarbonCalculator:
     def __init__(self, cluster_info: ClusterInfo, daily_avg_CI: dict = None):

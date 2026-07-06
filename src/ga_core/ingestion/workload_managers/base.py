@@ -14,7 +14,7 @@
 from abc import ABC, abstractmethod
 import pandas as pd
 
-from src.ga_core.data_models.normalised_job_record import NORMALISED_SCHEMA
+from ga_core.data_models.normalised_job_record import NORMALISED_SCHEMA
 
 class BaseWorkloadManager(ABC):
     """

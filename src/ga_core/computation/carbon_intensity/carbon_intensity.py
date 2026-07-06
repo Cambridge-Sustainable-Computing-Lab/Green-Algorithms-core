@@ -5,9 +5,9 @@
 
 import pandas as pd
 from datetime import datetime, timedelta
-from src.ga_core.computation.carbon_intensity.ci_store import CIStorageBackend
-from src.ga_core.utils.api_service import APIService
-from src.ga_core.utils import utils
+from ga_core.computation.carbon_intensity.ci_store import CIStorageBackend
+from ga_core.utils.api_service import APIService
+from ga_core.utils import utils
 
 class CarbonIntensityService:
     """
