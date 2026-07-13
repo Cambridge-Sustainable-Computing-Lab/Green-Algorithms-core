@@ -6,8 +6,6 @@
 # ------------------------------------------------------------------
 
 import pytest
-from unittest.mock import MagicMock, patch
-from ga_core.hpc_data_pipeline import HPCDataProcessor
 
 @pytest.fixture
 def config_data():
