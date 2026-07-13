@@ -1,0 +1,2 @@
+UID,User,JobID,JobName,Submit,Start,End,Elapsed,Partition,NNodes,NCPUS,TotalCPU,CPUTime,ReqMem,MaxRSS,WorkDir,State,Account,AllocTRES
+11111,uid_1,700011,test_job,2026-03-30T09:00:00,2026-03-30T09:02:00,2026-03-30T09:05:00,0:03:00,yew-himem,1,2,0:06:00,0:06:00,2G,1G,/home/uid_1/project,FAILED,research,"billing=2,cpu=2,mem=2G,node=1"

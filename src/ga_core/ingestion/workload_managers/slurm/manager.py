@@ -8,9 +8,9 @@ import os
 import pandas as pd
 import numpy as np
 
-from src.ga_core.ingestion.workload_managers.base import BaseWorkloadManager
-from src.ga_core.utils import utils
-from src.ga_core.ingestion.workload_managers.slurm.sacct_client import SacctClient
+from ga_core.ingestion.workload_managers.base import BaseWorkloadManager
+from ga_core.utils import utils
+from ga_core.ingestion.workload_managers.slurm.sacct_client import SacctClient
 
 class SlurmUtils:
     """
@@ -334,165 +334,168 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
         self.raw_logs = self.raw_logs_to_df()
         self.logs_df = self.filter_finished_jobs() # Keep only those jobs that have finished - i.e. contains a valid End date/ finished state
 
-        ### Calculate real memory usage
-        self.logs_df['ReqMemX'] = self.logs_df.apply(self.calc_ReqMem, axis=1)
-
-        ### Clean MaxRSS
-        self.logs_df['UsedMem_'] = self.logs_df.apply(self.clean_RSS, axis=1)
-
-        ### Parse wallclock time
-        self.logs_df['WallclockTimeX'] = self.logs_df['Elapsed'].apply(self.parse_timedelta)
-
-        ### Parse total CPU time
-        # This is the total CPU used time, accross all cores.
-        # But it is not reliably logged
-        self.logs_df['TotalCPUtime_'] = self.logs_df['TotalCPU'].apply(self.parse_timedelta)
-
-        ### Parse core-wallclock time
-        # This is the maximum time cores could use, if used at 100% (Elapsed time * CPU count)
-        self.logs_df['CPUwallclocktime_'] = self.logs_df['CPUTime'].apply(self.parse_timedelta)
-
-        ### Number of GPUs
-        # TODO double check that it includes multiple GPUs correctly
-        if 'AllocTRES' in self.logs_df.columns:
-            self.logs_df['NGPUS_'] = \
-                self.logs_df.AllocTRES.str.extract(r'((?<=gres\/gpu=)\d+)', expand=False).fillna(0).astype('int64')
+        if self.logs_df.empty:
+            raise ValueError(f"No finished jobs found in the logs for the period {self.config_data['startDay']} to {self.config_data['endDay']}")     
         else:
-            print('Using old logs, "AllocTRES" information not available.')  # TODO: remove this after a while
-            self.logs_df['NGPUS_'] = 0
+            ### Calculate real memory usage
+            self.logs_df['ReqMemX'] = self.logs_df.apply(self.calc_ReqMem, axis=1)
 
-        ### Clean partition
-        # Make sure it's either a partition name, or a comma-separated list of partitions
-        self.logs_df['PartitionX'] = self.logs_df.apply(self.clean_partition, axis=1)
+            ### Clean MaxRSS
+            self.logs_df['UsedMem_'] = self.logs_df.apply(self.clean_RSS, axis=1)
 
-        ### Parse datetimes - Submit, Start, End
-        self.logs_df['SubmitDatetimeX'] = self.logs_df.Submit.apply(
-            lambda x: datetime.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S"))
-        
-        self.logs_df['StartDatetimeX'] = self.logs_df.Start.apply(
-            lambda x: datetime.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S") if pd.notnull(x) else pd.NaT)
-        
-        self.logs_df['EndDatetimeX'] = self.logs_df.End.apply(
-            lambda x: datetime.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S") if pd.notnull(x) else pd.NaT)
+            ### Parse wallclock time
+            self.logs_df['WallclockTimeX'] = self.logs_df['Elapsed'].apply(self.parse_timedelta)
 
-        ### Number of CPUs
-        # e.g. here there is no cleaning necessary, so I just standardise the column name
-        self.logs_df['NCPUS_'] = self.logs_df.NCPUS
+            ### Parse total CPU time
+            # This is the total CPU used time, accross all cores.
+            # But it is not reliably logged
+            self.logs_df['TotalCPUtime_'] = self.logs_df['TotalCPU'].apply(self.parse_timedelta)
 
-        ### Number of nodes
-        self.logs_df['NNodes_'] = self.logs_df.NNodes
+            ### Parse core-wallclock time
+            # This is the maximum time cores could use, if used at 100% (Elapsed time * CPU count)
+            self.logs_df['CPUwallclocktime_'] = self.logs_df['CPUTime'].apply(self.parse_timedelta)
 
-        ### Job name
-        self.logs_df['JobName_'] = self.logs_df.JobName
+            ### Number of GPUs
+            # TODO double check that it includes multiple GPUs correctly
+            if 'AllocTRES' in self.logs_df.columns:
+                self.logs_df['NGPUS_'] = \
+                    self.logs_df.AllocTRES.str.extract(r'((?<=gres\/gpu=)\d+)', expand=False).fillna(0).astype('int64')
+            else:
+                print('Using old logs, "AllocTRES" information not available.')  # TODO: remove this after a while
+                self.logs_df['NGPUS_'] = 0
 
-        ### Working directory
-        self.logs_df['WorkingDir_'] = self.logs_df.WorkDir
+            ### Clean partition
+            # Make sure it's either a partition name, or a comma-separated list of partitions
+            self.logs_df['PartitionX'] = self.logs_df.apply(self.clean_partition, axis=1)
 
-        ### Username and UID
-        self.logs_df['UIDX'] = self.logs_df.UID
-        self.logs_df['UserX'] = self.logs_df.User
+            ### Parse datetimes - Submit, Start, End
+            self.logs_df['SubmitDatetimeX'] = self.logs_df.Submit.apply(
+                lambda x: datetime.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S"))
+            
+            self.logs_df['StartDatetimeX'] = self.logs_df.Start.apply(
+                lambda x: datetime.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S") if pd.notnull(x) else pd.NaT)
+            
+            self.logs_df['EndDatetimeX'] = self.logs_df.End.apply(
+                lambda x: datetime.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S") if pd.notnull(x) else pd.NaT)
 
-        ### State
-        customSuccessStates_list = self.config_data.customSuccessStates.split(',') if 'customSuccessStates' in self.config_data.keys() else []
-        self.logs_df['StateX'] = self.logs_df.State.apply(self.clean_State,
-                                                          customSuccessStates_list=customSuccessStates_list)
+            ### Number of CPUs
+            # e.g. here there is no cleaning necessary, so I just standardise the column name
+            self.logs_df['NCPUS_'] = self.logs_df.NCPUS
 
-        ### Pull jobID
-        self.logs_df['single_jobID'] = self.logs_df.JobID.apply(lambda x: x.split('.')[0])
+            ### Number of nodes
+            self.logs_df['NNodes_'] = self.logs_df.NNodes
 
-        ### Account
-        if 'Account' in self.logs_df.columns:
-            self.logs_df['Account_'] = self.logs_df.Account
-        else:
-            print('Using old logs, "Account" information not available.')  # TODO: remove this after a while
-            self.logs_df['Account_'] = ''
+            ### Job name
+            self.logs_df['JobName_'] = self.logs_df.JobName
 
-        ### Aggregate per jobID
-        self.df_agg = self.logs_df.groupby('single_jobID').agg({
-            'TotalCPUtime_': 'max',
-            'CPUwallclocktime_': 'max',
-            'WallclockTimeX': 'max',
-            'ReqMemX': 'max',
-            'UsedMem_': 'max',
-            'NCPUS_': 'max',
-            'NGPUS_': 'max',
-            'NNodes_': 'max',
-            'PartitionX': lambda x: ''.join(x),
-            'JobName_': 'first',
-            'SubmitDatetimeX': 'min',
-            'StartDatetimeX': 'min',
-            'EndDatetimeX': 'min',
-            'WorkingDir_': 'first',
-            'StateX': 'min',
-            'Account_': 'first',
-            'UIDX': 'first',
-            'UserX': 'first'
-        })
+            ### Working directory
+            self.logs_df['WorkingDir_'] = self.logs_df.WorkDir
 
-        self.df_agg.loc[self.df_agg.StateX == -1, 'StateX'] = 1 # Turn StateX==-1 into 1 (customSuccessStates are considered successful i.e. 1)
+            ### Username and UID
+            self.logs_df['UIDX'] = self.logs_df.UID
+            self.logs_df['UserX'] = self.logs_df.User
 
-        ### Replace UsedMem_=-1 with memory requested (for when MaxRSS=NaN)
-        self.df_agg['UsedMem2_'] = self.df_agg.apply(self.clean_UsedMem, axis=1)
+            ### State
+            customSuccessStates_list = self.config_data.customSuccessStates.split(',') if 'customSuccessStates' in self.config_data.keys() else []
+            self.logs_df['StateX'] = self.logs_df.State.apply(self.clean_State,
+                                                            customSuccessStates_list=customSuccessStates_list)
 
-        ### Label as CPU or GPU partition
-        self.df_agg['PartitionTypeX'] = self.df_agg.PartitionX.apply(self.set_partitionType)
+            ### Pull jobID
+            self.logs_df['single_jobID'] = self.logs_df.JobID.apply(lambda x: x.split('.')[0])
 
-        # Just used to clean up with old logs:
-        if 'AllocTRES' not in self.logs_df.columns:
-            self.df_agg.loc[self.df_agg.PartitionTypeX == 'GPU', 'NGPUS_'] = 1  # TODO remove after a while
+            ### Account
+            if 'Account' in self.logs_df.columns:
+                self.logs_df['Account_'] = self.logs_df.Account
+            else:
+                print('Using old logs, "Account" information not available.')  # TODO: remove this after a while
+                self.logs_df['Account_'] = ''
 
-        # Sanity check (no GPU logged for CPU partitions and vice versa)
-        assert (self.df_agg.loc[self.df_agg.PartitionTypeX == 'CPU'].NGPUS_ == 0).all()
-        foo = self.df_agg.loc[(self.df_agg.PartitionTypeX == 'GPU') & (self.df_agg.NGPUS_ == 0)]
-        assert (foo.WallclockTimeX.dt.total_seconds() == 0).all()  # Cancelled GPU jobs won't have any GPUs allocated if they didn't start
+            ### Aggregate per jobID
+            self.df_agg = self.logs_df.groupby('single_jobID').agg({
+                'TotalCPUtime_': 'max',
+                'CPUwallclocktime_': 'max',
+                'WallclockTimeX': 'max',
+                'ReqMemX': 'max',
+                'UsedMem_': 'max',
+                'NCPUS_': 'max',
+                'NGPUS_': 'max',
+                'NNodes_': 'max',
+                'PartitionX': lambda x: ''.join(x),
+                'JobName_': 'first',
+                'SubmitDatetimeX': 'min',
+                'StartDatetimeX': 'min',
+                'EndDatetimeX': 'min',
+                'WorkingDir_': 'first',
+                'StateX': 'min',
+                'Account_': 'first',
+                'UIDX': 'first',
+                'UserX': 'first'
+            })
 
-        ## Check that there is no missing UID/User
-        if self.df_agg.UIDX.isnull().sum() > 0:
-            print(f"(!) WARNING: {self.df_agg.UIDX.isnull().sum()} jobs have missing UIDs")
-        if self.df_agg.UserX.isnull().sum() > 0:
-            print(f"(!) WARNING: {self.df_agg.UserX.isnull().sum()} jobs have missing Usernames")
+            self.df_agg.loc[self.df_agg.StateX == -1, 'StateX'] = 1 # Turn StateX==-1 into 1 (customSuccessStates are considered successful i.e. 1)
 
-        ### add the usage time to use for calculations
-        self.df_agg['TotalCPUtime2useX'] = self.df_agg.apply(self.calc_CPUusage2use, axis=1)
-        self.df_agg['TotalGPUtime2useX'] = self.df_agg.apply(self.calc_GPUusage2use, axis=1)
+            ### Replace UsedMem_=-1 with memory requested (for when MaxRSS=NaN)
+            self.df_agg['UsedMem2_'] = self.df_agg.apply(self.clean_UsedMem, axis=1)
 
-        ### Calculate core-hours charged
-        self.df_agg[['CPUhoursChargedX', 'GPUhoursChargedX']] = self.df_agg.apply(self.calc_coreHoursCharged, axis=1, result_type='expand')
+            ### Label as CPU or GPU partition
+            self.df_agg['PartitionTypeX'] = self.df_agg.PartitionX.apply(self.set_partitionType)
 
-        ### Calculate real memory need
-        self.df_agg['NeededMemX'] = self.df_agg.apply(
-            self.calc_realMemNeeded,
-            granularity_memory_request=self.cluster_info.granularity_memory_request,
-            axis=1)
+            # Just used to clean up with old logs:
+            if 'AllocTRES' not in self.logs_df.columns:
+                self.df_agg.loc[self.df_agg.PartitionTypeX == 'GPU', 'NGPUS_'] = 1  # TODO remove after a while
 
-        ### Add memory waste information
-        self.df_agg['memOverallocationFactorX'] = self.df_agg.apply(self.calc_memory_overallocation, axis=1)
+            # Sanity check (no GPU logged for CPU partitions and vice versa)
+            assert (self.df_agg.loc[self.df_agg.PartitionTypeX == 'CPU'].NGPUS_ == 0).all()
+            foo = self.df_agg.loc[(self.df_agg.PartitionTypeX == 'GPU') & (self.df_agg.NGPUS_ == 0)]
+            assert (foo.WallclockTimeX.dt.total_seconds() == 0).all()  # Cancelled GPU jobs won't have any GPUs allocated if they didn't start
 
-        # foo = self.df_agg[['TotalCPUtime_', 'CPUwallclocktime_', 'WallclockTimeX', 'NCPUS_', 'CoreHoursChargedCPUX',
-        #                    'CoreHoursChargedGPUX', 'TotalCPUtime2useX', 'TotalGPUtime2useX']] # DEBUGONLY
+            ## Check that there is no missing UID/User
+            if self.df_agg.UIDX.isnull().sum() > 0:
+                print(f"(!) WARNING: {self.df_agg.UIDX.isnull().sum()} jobs have missing UIDs")
+            if self.df_agg.UserX.isnull().sum() > 0:
+                print(f"(!) WARNING: {self.df_agg.UserX.isnull().sum()} jobs have missing Usernames")
 
-        ### Filter on working directory
-        if 'filterWD' in self.config_data.keys():
-            if self.config_data['filterWD'] is not None:
-                # FIXME: Doesn't work with symbolic links
-                self.df_agg = self.df_agg.loc[self.df_agg.WorkingDir_ == self.config_data['filterWD']]
-                # print(f'Filtered out {len(self.df_agg)-len(self.df_agg):,} rows (filterCWD={self.args.filterWD})') # DEBUGONLY
+            ### add the usage time to use for calculations
+            self.df_agg['TotalCPUtime2useX'] = self.df_agg.apply(self.calc_CPUusage2use, axis=1)
+            self.df_agg['TotalGPUtime2useX'] = self.df_agg.apply(self.calc_GPUusage2use, axis=1)
 
-        ### Filter on Job ID
-        self.df_agg.reset_index(inplace=True)
-        self.df_agg['parentJobID'] = self.df_agg.single_jobID.apply(self.get_parent_jobID)
+            ### Calculate core-hours charged
+            self.df_agg[['CPUhoursChargedX', 'GPUhoursChargedX']] = self.df_agg.apply(self.calc_coreHoursCharged, axis=1, result_type='expand')
 
-        if 'filterJobIDs' in self.config_data.keys():
-            if self.config_data['filterJobIDs'] != 'all':
-                list_jobs2keep = self.config_data['filterJobIDs'].split(',')
-                self.df_agg = self.df_agg.loc[self.df_agg.parentJobID.isin(list_jobs2keep)]
+            ### Calculate real memory need
+            self.df_agg['NeededMemX'] = self.df_agg.apply(
+                self.calc_realMemNeeded,
+                granularity_memory_request=self.cluster_info.granularity_memory_request,
+                axis=1)
 
-        ### Filter on Account
-        if 'filterJfilterAccountobIDs' in self.config_data.keys():
-            if self.config_data['filterAccount'] is not None:
-                self.df_agg = self.df_agg.loc[self.df_agg.Account_ == self.config_data['filterAccount']]
+            ### Add memory waste information
+            self.df_agg['memOverallocationFactorX'] = self.df_agg.apply(self.calc_memory_overallocation, axis=1)
 
-        self.df_agg_X = self.df_agg[[x for x in self.df_agg.columns if x[-1] == 'X']]
-        return self.df_agg_X
+            # foo = self.df_agg[['TotalCPUtime_', 'CPUwallclocktime_', 'WallclockTimeX', 'NCPUS_', 'CoreHoursChargedCPUX',
+            #                    'CoreHoursChargedGPUX', 'TotalCPUtime2useX', 'TotalGPUtime2useX']] # DEBUGONLY
+
+            ### Filter on working directory
+            if 'filterWD' in self.config_data.keys():
+                if self.config_data['filterWD'] is not None:
+                    # FIXME: Doesn't work with symbolic links
+                    self.df_agg = self.df_agg.loc[self.df_agg.WorkingDir_ == self.config_data['filterWD']]
+                    # print(f'Filtered out {len(self.df_agg)-len(self.df_agg):,} rows (filterCWD={self.args.filterWD})') # DEBUGONLY
+
+            ### Filter on Job ID
+            self.df_agg.reset_index(inplace=True)
+            self.df_agg['parentJobID'] = self.df_agg.single_jobID.apply(self.get_parent_jobID)
+
+            if 'filterJobIDs' in self.config_data.keys():
+                if self.config_data['filterJobIDs'] != 'all':
+                    list_jobs2keep = self.config_data['filterJobIDs'].split(',')
+                    self.df_agg = self.df_agg.loc[self.df_agg.parentJobID.isin(list_jobs2keep)]
+
+            ### Filter on Account
+            if 'filterJfilterAccountobIDs' in self.config_data.keys():
+                if self.config_data['filterAccount'] is not None:
+                    self.df_agg = self.df_agg.loc[self.df_agg.Account_ == self.config_data['filterAccount']]
+
+            self.df_agg_X = self.df_agg[[x for x in self.df_agg.columns if x[-1] == 'X']]
+            return self.df_agg_X
 
         

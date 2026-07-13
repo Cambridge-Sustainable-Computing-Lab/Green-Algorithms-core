@@ -7,7 +7,7 @@
 import numpy as np
 import pandas as pd
 
-from src.ga_core.data_models.cluster_info_model import ClusterInfo
+from ga_core.data_models.cluster_info_model import ClusterInfo
 
 class EnergyCalculator:
     def __init__(self, cluster_info: ClusterInfo, fixed_params):
