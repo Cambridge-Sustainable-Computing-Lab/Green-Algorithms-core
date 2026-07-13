@@ -7,10 +7,21 @@ from tests.helpers import load_expected_csv
 
 class TestHPCDataPipeline:
     """
-    End-to-end tests for the HPC data pipeline (extract + enrich) using various test cases.
+    End-to-end (block-box) tests for the HPC data pipeline (extract + enrich) using various test cases.
+
+    Each test feeds a small SLURM log file to the pipeline through the HPCDataProcessor class and 
+    checks the output against manually calculated golden output. 
+    For the sake of consistency, a static CI value is used for all tests which is set in the cluster_info_dict fixture. 
     """
     @pytest.fixture(autouse=True)
     def setup(self, config_data, cluster_info_dict, fixed_params):
+        """
+        Runs automatically before every test in this class.
+ 
+        Derives the workload manager name (e.g. "slurm") from cluster_info_dict to
+        build per-scenario file paths, and overrides postcode to 'None' so every test
+        in this class uses the static CI fallback rather than call the API.
+        """
         self.wm = cluster_info_dict["workload_manager"].lower()
         self.test_cluster_info = {
             **cluster_info_dict,
@@ -21,7 +32,9 @@ class TestHPCDataPipeline:
         
     def test_single_job_pipeline_completed(self):
         """
-            End-to-end test for a single completed job log as input.
+        Scenario: one CPU job in a normal COMPLETED state, on a CPU partition
+
+        End-to-end test for a completed job log as input.
         """
         test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/{self.wm}/raw_logs/single_job_completed.csv'}
         processor = HPCDataProcessor(
@@ -43,7 +56,10 @@ class TestHPCDataPipeline:
     
     def test_single_job_pipeline_running(self):
         """
-            End-to-end test for a running job log as input.
+        Scenario: a job still in a RUNNING (unfinished) state, with no End timestamp.
+
+        End-to-end test to filter unfinished jobs. 
+        This expects a RuntimeError to be raised since no jobs are completed and the cleaning step cannot be performed.
         """
         test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/{self.wm}/raw_logs/single_job_running.csv'}
         processor = HPCDataProcessor(
@@ -58,7 +74,10 @@ class TestHPCDataPipeline:
     
     def test_single_job_pipeline_failed(self):
         """
-            End-to-end test for a failed job log as input.
+        Scenario: one CPU job that ran to completion but FAILED, on a CPU partition
+
+        End-to-end test for a failed job log as input. 
+        Expected to produce non-zero values in the *_failedJobs columns (energy_failedJobs, carbonFootprint_failedJobs)
         """
         test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/{self.wm}/raw_logs/single_job_failed.csv'}
         processor = HPCDataProcessor(
