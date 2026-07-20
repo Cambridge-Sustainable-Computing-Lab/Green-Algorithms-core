@@ -1,2 +1,2 @@
-UID,User,JobID,JobName,Submit,Start,End,Elapsed,Partition,NNodes,NCPUS,TotalCPU,CPUTime,ReqMem,MaxRSS,WorkDir,State,Account,AllocTRES
-11111,uid_1,700001,notebook,2026-03-30T05:10:00,2026-03-30T05:20:00,2026-03-30T08:10:00,02:50:00,yew-himem,1,8,22:40:00,22:40:00,16G,6G,/home/uid_1/project,COMPLETED,research,"billing=8,cpu=8,mem=16G,node=1"
+UID|User|JobID|JobName|Submit|Start|End|Elapsed|Partition|NNodes|NCPUS|TotalCPU|CPUTime|ReqMem|MaxRSS|WorkDir|State|Account|AllocTRES
+11111|uid_1|700001|notebook|2026-03-30T05:10:00|2026-03-30T05:20:00|2026-03-30T08:10:00|02:50:00|yew-himem|1|8|22:40:00|22:40:00|16G|6G|/home/uid_1/project|COMPLETED|research|billing=8,cpu=8,mem=16G,node=1
