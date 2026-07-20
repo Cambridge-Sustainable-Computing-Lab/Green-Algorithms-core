@@ -244,8 +244,7 @@ class SlurmUtils:
         """
         Convert raw logs output into a pandas dataframe - calling the static method convert2dataframe
         """
-        delimiter = "," if 'useCustomLogs' in self.config_data.keys() and self.config_data['useCustomLogs'] != '' else "|"
-        self.logs_df = utils.convert2dataframe(self.logs_raw, types = {'NNodes': 'int64', 'NCPUS': 'int64'}, delimiter=delimiter)
+        self.logs_df = utils.convert2dataframe(self.logs_raw, types = {'NNodes': 'int64', 'NCPUS': 'int64'}, delimiter="|")
 
 
     def concat_logs_df(self, new_logs_df: pd.DataFrame):
@@ -330,8 +329,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
         Clean the different fields of the usage logs.
         NB: the name of the columns ending with X need to be conserved, as they are used by the main script.
         """
-        # self.logs_df_raw = self.logs_df.copy() # DEBUGONLY Save a copy of uncleaned raw for debugging mainly
-        self.raw_logs = self.raw_logs_to_df()
+        self.raw_logs_to_df()
         self.logs_df = self.filter_finished_jobs() # Keep only those jobs that have finished - i.e. contains a valid End date/ finished state
 
         if self.logs_df.empty:
