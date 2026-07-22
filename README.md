@@ -1,6 +1,6 @@
 # Green-Algorithms-core
 
-This package implements the **Green Algorithms** methodology to estimate component-wise energy consumption and carbon footprints of computational workloads. 
+This package implements the [**Green Algorithms** methodology](https://doi.org/10.1002/advs.202100707) to estimate component-wise energy consumption and carbon footprints of computational workloads. 
 
 Divided primarily into two pipelines—**Ingestion** and **Computation**—it processes raw job logs extracted directly from workload managers (such as SLURM) or structured CSV files. The pipeline produces aggregated output per user and per day. Additionally, the computation module exposes underlying tools to calculate energy consumption, carbon footprints, and carbon emission equivalents directly.
 
