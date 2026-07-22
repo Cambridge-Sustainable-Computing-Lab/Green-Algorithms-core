@@ -1,2 +1,0 @@
-UID,User,JobID,JobName,Submit,Start,End,Elapsed,Partition,NNodes,NCPUS,TotalCPU,CPUTime,ReqMem,MaxRSS,WorkDir,State,Account,AllocTRES
-44444,uid_4,700009,simulation,2026-03-27T08:00:00,2026-03-27T09:00:00,,67:00:00,beech-himem,1,32,89-08:00:00,89-08:00:00,128G,120G,/home/uid_4/project,RUNNING,group_compute,"billing=32,cpu=32,mem=128G,node=1"

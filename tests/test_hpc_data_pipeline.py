@@ -36,7 +36,7 @@ class TestHPCDataPipeline:
 
         End-to-end test for a completed job log as input.
         """
-        test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/{self.wm}/raw_logs/single_job_completed.csv'}
+        test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/{self.wm}/raw_logs/single_job_completed.txt'}
         processor = HPCDataProcessor(
             config_data=test_config,
             cluster_info=self.test_cluster_info,
@@ -61,7 +61,7 @@ class TestHPCDataPipeline:
         End-to-end test to filter unfinished jobs. 
         This expects a RuntimeError to be raised since no jobs are completed and the cleaning step cannot be performed.
         """
-        test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/{self.wm}/raw_logs/single_job_running.csv'}
+        test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/{self.wm}/raw_logs/single_job_running.txt'}
         processor = HPCDataProcessor(
             config_data=test_config,
             cluster_info=self.test_cluster_info,
@@ -79,7 +79,7 @@ class TestHPCDataPipeline:
         End-to-end test for a failed job log as input. 
         Expected to produce non-zero values in the *_failedJobs columns (energy_failedJobs, carbonFootprint_failedJobs)
         """
-        test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/{self.wm}/raw_logs/single_job_failed.csv'}
+        test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/{self.wm}/raw_logs/single_job_failed.txt'}
         processor = HPCDataProcessor(
             config_data=test_config,
             cluster_info=self.test_cluster_info,
