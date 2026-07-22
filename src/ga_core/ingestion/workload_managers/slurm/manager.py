@@ -261,11 +261,18 @@ class SlurmUtils:
         '''
         Filter finished jobs from the logs dataframe using the 'End' column if available, else the 'State' column.
         '''
-        if 'End' in self.logs_df:
+        if self.logs_df.empty:
+            return self.logs_df.copy()
+
+        if 'End' in self.logs_df.columns:
             mask = self.logs_df['End'].notna() & (self.logs_df['End'] != "Unknown")
-        else: 
-            ## NOTE: This is a temporary workaround for retrocompatibility since in earlier versions 'End' field was not fetched. Must be removed eventually.
-            mask = ~self.logs_df['State'].isin(self.unfinished_states) 
+        elif 'State' in self.logs_df.columns:
+            mask = ~self.logs_df['State'].isin(self.unfinished_states)
+        else:
+            raise KeyError(
+                f"Cannot filter finished jobs: neither 'End' nor 'State' columns exist in logs_df. "
+                f"Found columns: {list(self.logs_df.columns)}"
+            )
         
         return self.logs_df[mask].copy()
 
