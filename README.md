@@ -1,6 +1,12 @@
 # Green-Algorithms-core
 
+![Version: v0.1.0](https://img.shields.io/badge/version-Gamma_(pre--release)-orange)
+[![Open Source? Yes!](https://badgen.net/badge/Open%20Source%20%3F/Yes%21/purple?icon=github)](https://github.com/Naereen/badges/)
+
 This package implements the [**Green Algorithms** methodology](https://doi.org/10.1002/advs.202100707) to estimate component-wise energy consumption and carbon footprints of computational workloads. 
+
+> [!IMPORTANT]
+> This package is open-source and directly usable, but is mainly intended as a base package to be used by other Green Algorithms tools.
 
 Divided primarily into two pipelines—**Ingestion** and **Computation**—it processes raw job logs extracted directly from workload managers (such as SLURM) or structured CSV files. The pipeline produces aggregated output per user and per day. Additionally, the computation module exposes underlying tools to calculate energy consumption, carbon footprints, and carbon emission equivalents directly.
 
@@ -45,7 +51,7 @@ pip install git+https://github.com/Cambridge-Sustainable-Computing-Lab/Green-Alg
 
 ## 🚀 Quickstart
 
-💡 Refer to `tests/conftest.py` for examples of required configuration parameters.
+💡 Refer to [tests/conftest.py](tests/conftest.py) for examples of required configuration parameters.
 
 ```python
 import pandas as pd
