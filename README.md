@@ -1,6 +1,6 @@
 # Green-Algorithms-core
 
-![Version: v0.1.0](https://img.shields.io/badge/version-Gamma_(pre--release)-orange)
+![Version: v0.1.0](https://img.shields.io/badge/version-v0.1.0-orange)
 [![Open Source? Yes!](https://badgen.net/badge/Open%20Source%20%3F/Yes%21/purple?icon=github)](https://github.com/Naereen/badges/)
 
 This package implements the [**Green Algorithms** methodology](https://doi.org/10.1002/advs.202100707) to estimate component-wise energy consumption and carbon footprints of computational workloads. 
