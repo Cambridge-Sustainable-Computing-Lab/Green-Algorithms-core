@@ -40,7 +40,7 @@ Currently, `Green-Algorithms-core` can be installed directly from this Git repos
 
 ### Standard Installation
 ```bash
-pip install git+https://github.com/username/Green-Algorithms-core.git
+pip install git+https://github.com/Cambridge-Sustainable-Computing-Lab/Green-Algorithms-core.git
 ```
 
 ### Specific Release or Branch
@@ -107,6 +107,19 @@ Execute the test suite to verify your local setup:
 ```bash
 pytest .
 ```
+
+### Contributing
+
+1. **Fork** the repository and clone your fork locally.
+2. Create a new branch off `main` for your change:
+````bash
+git checkout main
+git checkout -b feature/<your-feature-name>-<your-username>
+````
+3. Make your changes, then run `pytest .` to make sure nothing's broken.
+4. Commit your changes with a clear message, push to your fork, and open a **Pull Request against `main`**.
+
+> Please open an issue for larger changes.
 
 ### Reference & Test Data
 The `tests/` directory also serves as a reference for inputs, configurations, and expected pipeline outputs:
