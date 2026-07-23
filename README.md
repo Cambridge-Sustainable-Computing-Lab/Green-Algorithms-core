@@ -119,6 +119,7 @@ git checkout -b feature/<your-feature-name>-<your-username>
 3. Make your changes, then run `pytest .` to make sure nothing's broken.
 4. Commit your changes with a clear message, push to your fork, and open a **Pull Request against `main`**.
 
+> [!IMPORTANT]
 > Please open an issue for larger changes.
 
 ### Reference & Test Data
