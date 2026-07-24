@@ -18,7 +18,7 @@ Divided primarily into two pipelines—**Ingestion** and **Computation**—it pr
 
 * **Flexible Ingestion:** Extract logs from SLURM using sacct (with provision to extend for other workload managers) or structured logs in CSV format.
 * **Energy Calculation:** Models power draw based on CPU/GPU architecture, core counts, memory usage, and runtime.
-* **Carbon Footprint Calculation:** Uses CarbonIntensity regional API (UK only) to integrate dynamic carbon intensity (CI) with estimated energy consumption.  
+* **Carbon Footprint Calculation:** Uses [CarbonIntensity regional API](https://carbonintensity.org.uk) (UK only) to integrate dynamic carbon intensity (CI) with estimated energy consumption.  
 * **Contextual Metrics:** Translates raw $\text{CO}_2\text{e}$ metrics into intuitive real-world equivalents (e.g., tree-months for sequestration, car miles driven).
 * **Storage Backend Agnostic:** Supports custom storage backends (via `CIStorageBackend`) to cache or persist carbon intensity values.
 
