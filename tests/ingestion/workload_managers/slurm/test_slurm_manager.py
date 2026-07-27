@@ -24,7 +24,6 @@ class TestMemory:
     # @pytest.mark.parametrize lets you run the same test function multiple times with different inputs
     @pytest.mark.parametrize("memory,unit,expected", [
         (2, 'T', 2000.0),
-        (1, 'P', 1_000_000.0),
         (1000, 'M', 1.0),
         (5, 'G', 5.0),
         (1_000_000, 'K', 1.0),
@@ -47,7 +46,6 @@ class TestMemory:
         ("2Tn", 4, 8, 8000.0), #2 TB per node, 4 nodes
         ("500Gc", 1, 16, 8000.0), #500 GB per core, 16 cores
         ("1T", 1, 1, 1000.0), #flat 1 TB, no per-node/core suffix
-        ("2Pn", 2, 1, 4_000_000.0), #petabyte per node
     ])
     def test_tb_pb_variants(self, mem_raw, n_nodes, n_cores, expected):
         """

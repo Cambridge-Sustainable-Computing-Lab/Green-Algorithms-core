@@ -26,18 +26,16 @@ class SlurmUtils:
         """
         Converts data quantity into GB.
         :param memory: [float] quantity to convert
-        :param unit: [str] unit of `memory`, has to be one of ['M', 'G', 'K']
+        :param unit: [str] unit of `memory`, has to be one of ['M', 'G', 'K', 'T']
         :return: [float] memory in GB.
         """
-        assert unit in ['M', 'G', 'K', 'T', 'P'] 
+        assert unit in ['M', 'G', 'K', 'T'] 
         if unit == 'M':
             memory /= 1e3
         elif unit == 'K':
             memory /= 1e6
         elif unit == 'T':
             memory *= 1e3
-        elif unit == 'P':
-            memory *= 1e6
         return memory
 
     def calc_ReqMem(self, x):
@@ -49,7 +47,7 @@ class SlurmUtils:
         ReqMem Amount of memory requested; suffixed with 'c' if per CPU, 'n' if per node
         """
         mem_raw, n_nodes, n_cores = x['ReqMem'], x['NNodes'], x['NCPUS']
-        valid_units = ['M', 'G', 'K', 'T', 'P']
+        valid_units = ['M', 'G', 'K', 'T']
 
         if pd.isnull(mem_raw) or mem_raw == '0':
             return self.convert_to_GB(0, 'G')
