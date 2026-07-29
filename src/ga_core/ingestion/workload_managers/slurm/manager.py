@@ -4,7 +4,6 @@
 # ------------------------------------------------------------------
 
 import datetime
-import os
 import pandas as pd
 import numpy as np
 
@@ -21,7 +20,7 @@ class SlurmUtils:
     def __init__(self, cluster_info):
         self.cluster_info = cluster_info
         self.unfinished_states = ['PENDING','RUNNING','SUSPENDED','UNKNOWN','PREEMPTED'] # States from SLURM documentation: https://slurm.schedmd.com/job_state_codes.html (as of 10 Feb 2026)
-
+        
     def convert_to_GB(self, memory, unit):
         """
         Converts data quantity into GB.
@@ -275,26 +274,20 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
     'manager_type="slurm"' is used to register this class with the register based factory defined in BaseWorkloadManager.
     """
 
-    def __init__(self, config_data:dict, cluster_info):
+    def __init__(self, config_data:dict, cluster_info, logs_raw):
         """
         Methods related to the Workload manager
         :param config_data: [dict] Configuration data
         :param cluster_info: [dict] information about this specific cluster.
         """
-        super().__init__(cluster_info=cluster_info)
-        # self.args = args
+        SlurmUtils.__init__(self, cluster_info=cluster_info)
+        BaseWorkloadManager.__init__(self, logs_raw=logs_raw)
+
         self.config_data = config_data
-
-        # try:
-        #     self.config_data = self.args.__dict__  # This is when using command line arguments (Namespace)
-        # except Exception:
-        #     self.config_data = self.args._asdict()  # This is when using the debugging namedtuples TODO this a bit messy, should be cleaned up
-
         self.logs_df = None
         self.df_agg_0 = None
         self.df_agg = None
         self.df_agg_X = None
-
     
     ### Implements abstract methods from BaseWorkloadManager
     def pull_logs(self):
@@ -302,27 +295,14 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
         Run the command line to pull usage from the workload manager.
         More: https://slurm.schedmd.com/sacct.html
         """
-        # Case where we can't run sacct, but use previously-obtained data instead
-        if 'useCustomLogs' in self.config_data.keys() and self.config_data['useCustomLogs'] != '':
-            message = "Overriding logs_raw with: "
-            foundIt = False
-            for sacctFileLocation in ['', 'testdata', 'error_logs']:
-                if not foundIt:
-                    try:
-                        with open(os.path.join(sacctFileLocation, self.config_data['useCustomLogs']), 'rb') as f:
-                            self.logs_raw = f.read()
-                        message += f"{sacctFileLocation}/{self.config_data['useCustomLogs']}"
-                        foundIt = True
-                    except Exception:
-                        pass
-            if not foundIt:
-                raise FileNotFoundError(f"Couldn't find {self.config_data['useCustomLogs']} \n "
-                                        f"It should be either be in the testData/ or error_logs/ subdirectories, or the full path should be provided by --useCustomLogs.")
-            print(message)
-
-        # What we expect to be the usual case, where we run the sacct command.
-        else:
-            self.logs_raw = SacctClient.pull_logs_by_time(self.config_data['startDay'], self.config_data['endDay'], self.config_data['all_users_access'])                
+        try:
+            self.logs_raw = SacctClient.pull_logs_by_time(
+                self.config_data['startDay'],
+                self.config_data['endDay'],
+                self.config_data['all_users_access']
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to pull logs using config {self.config_data}: {e}") from e     
     
     def clean_logs(self):
         """
@@ -495,5 +475,23 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
 
             self.df_agg_X = self.df_agg[[x for x in self.df_agg.columns if x[-1] == 'X']]
             return self.df_agg_X
+
+    def validate_raw_logs(self, logs_raw: bytes = None):
+        if logs_raw:
+            if isinstance(logs_raw, (bytes, bytearray)):
+                try:
+                    text = logs_raw.decode("utf-8")
+                except UnicodeDecodeError as exc:
+                    raise ValueError(f"Couldn't decode logs_raw as utf-8: {exc}") from exc
+            else:
+                text = logs_raw
+
+            lines = [ln for ln in text.splitlines() if ln.strip()]
+            if not lines:
+                raise ValueError("logs_raw contains no non-empty lines")
+            header = lines[0].split('|')
+            missing = [col for col in SacctClient.sacct_fields if col not in header]
+            if missing:
+                raise ValueError(f"logs_raw is missing required column(s): {missing}")
 
         
