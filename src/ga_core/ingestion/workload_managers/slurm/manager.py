@@ -215,7 +215,6 @@ class SlurmUtils:
         :return: [int] in [-1,0,1]
         """
         # Codes are found here: https://slurm.schedmd.com/squeue.html#SECTION_JOB-STATE-CODES
-        # self.args.customSuccessStates = 'TO,TIMEOUT'
         success_codes = ['CD', 'COMPLETED']
         if x in success_codes:
             codeState = 1
@@ -374,7 +373,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
             self.logs_df['UserX'] = self.logs_df.User
 
             ### State
-            customSuccessStates_list = self.config_data.customSuccessStates.split(',') if 'customSuccessStates' in self.config_data.keys() else []
+            customSuccessStates_list = self.config_data["customSuccessStates"].split(',') if 'customSuccessStates' in self.config_data.keys() else []
             self.logs_df['StateX'] = self.logs_df.State.apply(self.clean_State,
                                                             customSuccessStates_list=customSuccessStates_list)
 
@@ -457,7 +456,6 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
                 if self.config_data['filterWD'] is not None:
                     # FIXME: Doesn't work with symbolic links
                     self.df_agg = self.df_agg.loc[self.df_agg.WorkingDir_ == self.config_data['filterWD']]
-                    # print(f'Filtered out {len(self.df_agg)-len(self.df_agg):,} rows (filterCWD={self.args.filterWD})') # DEBUGONLY
 
             ### Filter on Job ID
             self.df_agg.reset_index(inplace=True)
