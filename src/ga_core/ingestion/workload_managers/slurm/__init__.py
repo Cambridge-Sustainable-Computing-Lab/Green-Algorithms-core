@@ -1,0 +1,1 @@
+from ga_core.ingestion.workload_managers.slurm.sacct_client import SacctClient
