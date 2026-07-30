@@ -43,4 +43,4 @@ class SacctClient:
             logs = subprocess.run(bash_com_full, capture_output=True)
             return logs.stdout   
         except Exception as e:
-            print(f"Error occurred while pulling logs by time using sacct: {e}")
+            raise RuntimeError(f"(SacctClient.pull_logs_by_time) Error occurred while pulling logs by time using sacct: {e}") from e
