@@ -5,7 +5,7 @@
 import subprocess
 
 class SacctClient:
-    """ d
+    """
     Client to interact with the SLURM workload manager using the 'sacct' command.
     Contains separate methods to pull logs in different contexts (by time, by JobID, etc.) and can be extended with more methods as needed.
     """

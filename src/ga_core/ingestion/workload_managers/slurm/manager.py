@@ -258,14 +258,18 @@ class SlurmUtils:
     def filter_finished_jobs(self) -> pd.DataFrame:
         '''
         Filter finished jobs from the logs dataframe using the 'End' column if available, else the 'State' column.
+        A job is considered finished only if ALL of its rows (parent + steps) are finished.
         '''
+        single_jobID = self.logs_df['JobID'].str.split('.').str[0]
         if 'End' in self.logs_df:
-            mask = self.logs_df['End'].notna() & (self.logs_df['End'] != "Unknown")
+            row_finished = self.logs_df['End'].notna() & (self.logs_df['End'] != "Unknown")
         else: 
             ## NOTE: This is a temporary workaround for retrocompatibility since in earlier versions 'End' field was not fetched. Must be removed eventually.
-            mask = ~self.logs_df['State'].isin(self.unfinished_states) 
-        
-        return self.logs_df[mask].copy()
+            row_finished = ~self.logs_df['State'].isin(self.unfinished_states) 
+
+        # Group row_finished by single_jobID (aligned by index); True only if all rows in the job finished    
+        job_finished = row_finished.groupby(single_jobID).transform('all')
+        return self.logs_df[job_finished].copy()
 
 class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
     """
