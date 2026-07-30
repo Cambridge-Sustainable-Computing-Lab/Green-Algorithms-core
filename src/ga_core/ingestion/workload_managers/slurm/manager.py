@@ -25,14 +25,16 @@ class SlurmUtils:
         """
         Converts data quantity into GB.
         :param memory: [float] quantity to convert
-        :param unit: [str] unit of `memory`, has to be one of ['M', 'G', 'K']
+        :param unit: [str] unit of `memory`, has to be one of ['M', 'G', 'K', 'T']
         :return: [float] memory in GB.
         """
-        assert unit in ['M', 'G', 'K']
+        assert unit in ['M', 'G', 'K', 'T'] 
         if unit == 'M':
             memory /= 1e3
         elif unit == 'K':
             memory /= 1e6
+        elif unit == 'T':
+            memory *= 1e3
         return memory
 
     def calc_ReqMem(self, x):
@@ -44,20 +46,24 @@ class SlurmUtils:
         ReqMem Amount of memory requested; suffixed with 'c' if per CPU, 'n' if per node
         """
         mem_raw, n_nodes, n_cores = x['ReqMem'], x['NNodes'], x['NCPUS']
+        valid_units = ['M', 'G', 'K', 'T']
 
         if pd.isnull(mem_raw) or mem_raw == '0':
-            unit = 'G'
-            memory = 0
+            return self.convert_to_GB(0, 'G')
+        
         elif mem_raw[-1] == 'n':
             unit = mem_raw[-2]
             memory = float(mem_raw[:-2]) * n_nodes
         elif mem_raw[-1] == 'c':
             unit = mem_raw[-2]
             memory = float(mem_raw[:-2]) * n_cores
-        elif mem_raw[-1] in ['M', 'G', 'K']:
+        elif mem_raw[-1] in valid_units:
             unit = mem_raw[-1]
             memory = float(mem_raw[:-1])
         else:
+            unit = None
+
+        if unit not in valid_units:
             raise ValueError(f"Can't parse memory value: {mem_raw}. Please raise issue on GitHub.")
 
         return self.convert_to_GB(memory, unit)
@@ -260,13 +266,22 @@ class SlurmUtils:
         Filter finished jobs from the logs dataframe using the 'End' column if available, else the 'State' column.
         A job is considered finished only if ALL of its rows (parent + steps) are finished.
         '''
+        if self.logs_df.empty:
+            return self.logs_df.copy()
+          
         single_jobID = self.logs_df['JobID'].str.split('.').str[0]
+        
         if 'End' in self.logs_df:
             row_finished = self.logs_df['End'].notna() & (self.logs_df['End'] != "Unknown")
-        else: 
+        elif 'State' in self.logs_df.columns:
             ## NOTE: This is a temporary workaround for retrocompatibility since in earlier versions 'End' field was not fetched. Must be removed eventually.
             row_finished = ~self.logs_df['State'].isin(self.unfinished_states) 
-
+        else:
+            raise KeyError(
+                f"Cannot filter finished jobs: neither 'End' nor 'State' columns exist in logs_df. "
+                f"Found columns: {list(self.logs_df.columns)}"
+            )
+        
         # Group row_finished by single_jobID (aligned by index); True only if all rows in the job finished    
         job_finished = row_finished.groupby(single_jobID).transform('all')
         return self.logs_df[job_finished].copy()
@@ -471,7 +486,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
                     self.df_agg = self.df_agg.loc[self.df_agg.parentJobID.isin(list_jobs2keep)]
 
             ### Filter on Account
-            if 'filterJfilterAccountobIDs' in self.config_data.keys():
+            if 'filterAccount' in self.config_data.keys():
                 if self.config_data['filterAccount'] is not None:
                     self.df_agg = self.df_agg.loc[self.df_agg.Account_ == self.config_data['filterAccount']]
 
