@@ -48,9 +48,9 @@ class SlurmUtils:
         mem_raw, n_nodes, n_cores = x['ReqMem'], x['NNodes'], x['NCPUS']
         valid_units = ['M', 'G', 'K', 'T']
 
-        if pd.isnull(mem_raw) or mem_raw == '0':
+        if pd.isnull(mem_raw) or mem_raw in ('0', '0n', '0c'):
             return self.convert_to_GB(0, 'G')
-        
+
         elif mem_raw[-1] == 'n':
             unit = mem_raw[-2]
             memory = float(mem_raw[:-2]) * n_nodes
@@ -193,7 +193,6 @@ class SlurmUtils:
             # NB: when TotalCPU=0, we assume usage factor = 100% for all CPU cores
             return x.CPUwallclocktime_
 
-        assert x.TotalCPUtime_ <= x.CPUwallclocktime_
         return x.TotalCPUtime_
 
     def calc_GPUusage2use(self, x):
