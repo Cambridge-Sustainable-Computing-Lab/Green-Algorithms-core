@@ -86,6 +86,17 @@ enriched_df = processor.enrich_data(raw_df)
 print(enriched_df[["UserX", "StartDatetimeX", "carbonFootprint", "energy_CPUs", "energy_GPUs"]].head())
 ```
 
+### Read raw logs from a file
+You can bypass direct interaction with the workload manager by reading raw logs from a file instead. `HPCDataProcessor.extract_data()` accepts raw log bytes and handles cleaning and preparation for the enrichment step.
+
+```python
+with open('sample_raw_logs.txt', 'rb') as f:
+    logs_raw = f.read()  # Read raw logs
+
+# Extract and enrich data
+raw_df = processor.extract_data(logs_raw)
+enriched_df = processor.enrich_data(raw_df)
+```
 ## ⚒️ Development Installation and Tests
 
 If you are contributing to or extending the codebase locally:

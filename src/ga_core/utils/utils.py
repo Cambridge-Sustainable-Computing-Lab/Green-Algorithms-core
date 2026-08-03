@@ -47,18 +47,18 @@ def check_empty_results(df, args):
     :param args: [argStruct] Named tuple of arguments used.
     """
     if len(df) == 0:
-        if args.filterWD is not None:
-            addThat = f' from this directory ({args.filterWD})'
+        if args["filterWD"] is not None:
+            addThat = f' from this directory ({args["filterWD"]})'
         else:
             addThat = ''
-        if args.filterJobIDs != 'all':
+        if args["filterJobIDs"] != 'all':
             addThat += ' and with these jobIDs'
-        if args.filterAccount is not None:
+        if args["filterAccount"] is not None:
             addThat += ' charged under this account'
 
         print(f'''
 
-    You haven't run any jobs in that period (from {args.startDay} to {args.endDay}){addThat}.
+    You haven't run any jobs in that period (from {args["startDay"]} to {args["endDay"]}){addThat}.
 
         ''')
         sys.exit()

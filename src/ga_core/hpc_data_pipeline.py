@@ -38,13 +38,24 @@ class HPCDataProcessor:
         self.config_data['all_users_access'] = all_users_access
 
     # Ingestion
-    def extract_data(self) -> pd.DataFrame:
+    def extract_data(self, logs_raw: bytes = None) -> pd.DataFrame:
+        """
+        Uses the registered workload manager classes in BaseWorkloadManager to create a required object.
+        Uses this object to extract logs and clean them.
+
+        :param logs_raw: [bytes] contains raw logs that need to be processed (if this is None, logs are fetched directly from workload manager)
+        :return: [pd.DataFrame] cleaned logs where each row represents one job
+        """
         try:
             if 'use_mock_agg_data' in self.config_data.keys(): # DEBUGONLY Create/use some mock jobs with different users
                 return utils.get_mock_agg_data()
             
             ### Pull usage statistics from the workload manager
-            WM = BaseWorkloadManager.create(manager_type=self.cluster_info.workload_manager, config_data=self.config_data, cluster_info=self.cluster_info)
+            WM = BaseWorkloadManager.create(manager_type=self.cluster_info.workload_manager, 
+                                            config_data=self.config_data, 
+                                            cluster_info=self.cluster_info,
+                                            logs_raw=logs_raw)
+            
             df_agg = WM.extract_logs()  # Pull and clean logs
 
             # Check if there are any jobs during the period from this directory and with these jobIDs

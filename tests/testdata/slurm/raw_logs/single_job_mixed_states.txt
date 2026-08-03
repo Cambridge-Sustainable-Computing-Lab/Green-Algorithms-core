@@ -1,0 +1,4 @@
+UID|User|JobID|JobName|Submit|Start|End|Elapsed|Partition|NNodes|NCPUS|TotalCPU|CPUTime|ReqMem|MaxRSS|WorkDir|State|Account|AllocTRES
+33333|uid_3|700003|preprocess|2026-03-30T07:00:00|2026-03-30T07:10:00|Unknown|01:45:00|yew-himem|1|8|N/A|N/A|16G||/home/uid_3/project|RUNNING|research|billing=8,cpu=8,mem=16G,node=1
+33333|uid_3|700003.batch|batch|2026-03-30T07:00:00|2026-03-30T07:10:00|2026-03-30T08:55:00|01:45:00|yew-himem|1|8|01:40:00|14:00:00|16G|9G|/home/uid_3/project|COMPLETED|research|billing=8,cpu=8,mem=16G,node=1
+33333|uid_3|700003.extern|extern|2026-03-30T07:00:00|2026-03-30T07:10:00|Unknown|01:45:00|yew-himem|1|8|00:00:00|14:00:00|16G|0|/home/uid_3/project|RUNNING|research|billing=8,cpu=8,mem=16G,node=1
