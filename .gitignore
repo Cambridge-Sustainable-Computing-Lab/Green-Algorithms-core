@@ -217,4 +217,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 .vscode/settings.json
-tests/testdata/slurm/.DS_Store
+**/.DS_Store
+
