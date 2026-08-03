@@ -1,6 +1,10 @@
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
+
 [project]
 name = "ga_core"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Package containing the core Green Algorithms methodology to estimate resource consumption and carbon footprint of computational workloads"
 authors = [
     {name = "Green Algorithms",email = "green.algorithms@gmail.com"}
@@ -20,9 +24,10 @@ dependencies = [
 [tool.poetry]
 packages = [{ include = "ga_core", from = "src" }]
 
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+style = "pep440"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
