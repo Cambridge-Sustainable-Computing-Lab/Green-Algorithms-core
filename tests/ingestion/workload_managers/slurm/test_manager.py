@@ -5,11 +5,45 @@
 # NOTE: Tests pertaining to similar functionality in SlurmUtils and SlurmManager should be grouped together in the same class
 # ------------------------------------------------------------------
 
+import os
+
 import pytest
 import pandas as pd
 
 from ga_core.data_models.cluster_info_model import ClusterInfo
-from ga_core.ingestion.workload_managers.slurm.manager import SlurmUtils
+from ga_core.ingestion.workload_managers.slurm.manager import SlurmManager, SlurmUtils
+
+class TestSlurmManager:
+    """
+    testing SlurmManager
+    """
+    @pytest.fixture(autouse=True)
+    def setup(self, config_data, cluster_info_dict):
+        """
+        Runs automatically before every test in this class.
+        """
+        
+        self.test_cluster_info = {
+            **cluster_info_dict,
+            "postcode": None, # Postcode is set to none to force static CI from cluster info.
+        }
+        self.test_config = config_data
+
+    def test_mixed_states_sub_jobs(self):
+        """
+        Scenario: A job has sub-jobs with mixed states, i.e. some of them are completed and some still running. 
+        In this case, the job must not be processed.
+        """
+        test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/slurm/raw_logs/single_job_mixed_states.txt'}
+        
+        with open(os.path.join(test_config['useCustomLogs']), 'rb') as f:
+            logs_raw = f.read() # Read custom logs
+
+        wm = SlurmManager(self.test_config, self.test_cluster_info, logs_raw)
+
+        # Raises ValueError since no finished jobs found
+        with pytest.raises(ValueError):
+            wm.clean_logs()
 
 class TestMemory:
     @pytest.fixture(autouse=True)
@@ -26,7 +60,7 @@ class TestMemory:
         (2, 'T', 2000.0),
         (1000, 'M', 1.0),
         (5, 'G', 5.0),
-        (1_000_000, 'K', 1.0),
+        (1_000_000, 'K', 1.0)
     ])
     def test_convert_to_gb(self, memory, unit, expected):
         """
@@ -46,8 +80,9 @@ class TestMemory:
         ("2Tn", 4, 8, 8000.0), #2 TB per node, 4 nodes
         ("500Gc", 1, 16, 8000.0), #500 GB per core, 16 cores
         ("1T", 1, 1, 1000.0), #flat 1 TB, no per-node/core suffix
+        ("0n", 1, 1, 0.0),
     ])
-    def test_tb_pb_variants(self, mem_raw, n_nodes, n_cores, expected):
+    def test_reqmem_variants(self, mem_raw, n_nodes, n_cores, expected):
         """
         Scenario: Test the calc_ReqMem function with various memory request formats and expected outputs.
         """

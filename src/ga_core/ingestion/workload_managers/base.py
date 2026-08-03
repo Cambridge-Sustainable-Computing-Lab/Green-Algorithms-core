@@ -33,6 +33,10 @@ class BaseWorkloadManager(ABC):
     """
     _registry: dict[str, type] = {}
 
+    def __init__(self, logs_raw: bytes = None):
+        self.validate_raw_logs(logs_raw) # validate raw logs
+        self.logs_raw = logs_raw
+
     def __init_subclass__(cls, manager_type: str = None, **kwargs):
         """
         Gets called automatically by Python whenever a class inherits from BaseWorkloadManager.
@@ -63,9 +67,18 @@ class BaseWorkloadManager(ABC):
         Returns a DataFrame conforming to NormalisedJobRecord schema.
         This method is inherited by all workload managers and should not be overridden.
         """
-        self.pull_logs()
+        if not self.logs_raw:
+            self.pull_logs()
         df = self.clean_logs()
         return self._validate(df)
+
+    @abstractmethod
+    def validate_raw_logs(self, logs_raw: bytes):
+        """
+        When raw logs are available, they're validated using this function.
+        Must be defined according to the requirement of each workload manager.
+        """
+        pass
     
     @abstractmethod
     def pull_logs(self) -> pd.DataFrame:

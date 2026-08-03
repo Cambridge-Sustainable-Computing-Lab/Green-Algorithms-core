@@ -9,12 +9,12 @@ class SacctClient:
     Client to interact with the SLURM workload manager using the 'sacct' command.
     Contains separate methods to pull logs in different contexts (by time, by JobID, etc.) and can be extended with more methods as needed.
     """
-
+    sacct_fields = ["UID","User","JobID","JobName","Submit","Start",'End',"Elapsed","Partition","NNodes",
+                "NCPUS","TotalCPU","CPUTime","ReqMem","MaxRSS","WorkDir","State","Account","AllocTRES"]
     bash_com = [
                 "sacct",
                 "--format",
-                "UID,User,JobID,JobName,Submit,Start,End,Elapsed,Partition,NNodes,NCPUS,TotalCPU,CPUTime,"
-                "ReqMem,MaxRSS,WorkDir,State,Account,AllocTres",
+                ",".join(sacct_fields),
                 "-P",
                 "-L"  # All clusters
             ]
@@ -43,6 +43,4 @@ class SacctClient:
             logs = subprocess.run(bash_com_full, capture_output=True)
             return logs.stdout   
         except Exception as e:
-            print(f"Error occurred while pulling logs by time using sacct: {e}")
-        finally:
-            return None 
+            raise RuntimeError(f"(SacctClient.pull_logs_by_time) Error occurred while pulling logs by time using sacct: {e}") from e

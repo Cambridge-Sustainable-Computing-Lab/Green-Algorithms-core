@@ -1,5 +1,6 @@
 # tests/test_pipeline_end_to_end.py
 
+import os
 import pytest
 import pandas as pd
 from ga_core.hpc_data_pipeline import HPCDataProcessor
@@ -37,6 +38,10 @@ class TestHPCDataPipeline:
         End-to-end test for a completed job log as input.
         """
         test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/{self.wm}/raw_logs/single_job_completed.txt'}
+
+        with open(os.path.join(test_config['useCustomLogs']), 'rb') as f:
+            logs_raw = f.read() # Read custom logs
+
         processor = HPCDataProcessor(
             config_data=test_config,
             cluster_info=self.test_cluster_info,
@@ -44,7 +49,8 @@ class TestHPCDataPipeline:
             all_users_access=True,
                 )
 
-        extracted_df = processor.extract_data()
+        extracted_df = processor.extract_data(logs_raw)
+
         result = processor.enrich_data(extracted_df)
         expected = load_expected_csv(f"tests/testdata/{self.wm}/expected/single_job_completed_expected.csv")
         pd.testing.assert_frame_equal(
@@ -62,6 +68,11 @@ class TestHPCDataPipeline:
         This expects a RuntimeError to be raised since no jobs are completed and the cleaning step cannot be performed.
         """
         test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/{self.wm}/raw_logs/single_job_running.txt'}
+
+        with open(os.path.join(test_config['useCustomLogs']), 'rb') as f:
+                    logs_raw = f.read() # Read custom logs
+        print(type(logs_raw))
+
         processor = HPCDataProcessor(
             config_data=test_config,
             cluster_info=self.test_cluster_info,
@@ -70,7 +81,7 @@ class TestHPCDataPipeline:
                 )
         
         with pytest.raises(RuntimeError):
-            processor.extract_data()
+            processor.extract_data(logs_raw)
     
     def test_single_job_pipeline_failed(self):
         """
@@ -80,6 +91,10 @@ class TestHPCDataPipeline:
         Expected to produce non-zero values in the *_failedJobs columns (energy_failedJobs, carbonFootprint_failedJobs)
         """
         test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/{self.wm}/raw_logs/single_job_failed.txt'}
+
+        with open(os.path.join(test_config['useCustomLogs']), 'rb') as f:
+                            logs_raw = f.read() # Read custom logs
+
         processor = HPCDataProcessor(
             config_data=test_config,
             cluster_info=self.test_cluster_info,
@@ -87,7 +102,7 @@ class TestHPCDataPipeline:
             all_users_access=True,
                 )
         
-        extracted_df = processor.extract_data()
+        extracted_df = processor.extract_data(logs_raw)
         result = processor.enrich_data(extracted_df)
         expected = load_expected_csv(f"tests/testdata/{self.wm}/expected/single_job_failed_expected.csv")
         pd.testing.assert_frame_equal(
