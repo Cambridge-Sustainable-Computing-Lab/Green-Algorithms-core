@@ -1,31 +1,42 @@
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
+
 [project]
 name = "ga_core"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Package containing the core Green Algorithms methodology to estimate resource consumption and carbon footprint of computational workloads"
 authors = [
-    {name = "Green Algorithms",email = "green.algorithms@gmail.com"}
+    {name = "Green Algorithms", email = "green.algorithms@gmail.com"}
 ]
 license = "GPL-3.0-or-later"
 readme = "README.md"
-requires-python = ">=3.13,<4.0"
+requires-python = ">=3.11,<4.0"
 classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
 dependencies = [
-    "pandas (==2.3.2)",
-    "numpy (==2.3.2)",
-    "requests (==2.32.3)",
+    "pandas==2.3.2",
+    "numpy==2.3.2",
+    "requests==2.32.3",
 ]
 
 [tool.poetry]
 packages = [{ include = "ga_core", from = "src" }]
+version = "0.0.0"  # Placeholder required by Poetry parser
 
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.poetry.requires-plugins]
+poetry-dynamic-versioning = { version = ">=1.0.0,<2.0.0", extras = ["plugin"] }
+
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+style = "pep440"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
+flake8 = "^7.3.0"
+pytest-cov = "^7.1.0"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
