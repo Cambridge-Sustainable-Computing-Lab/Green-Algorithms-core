@@ -22,8 +22,8 @@ dependencies = [
 ]
 
 [tool.poetry]
-version = "0.0.0"  # Placeholder required by Poetry parser
 packages = [{ include = "ga_core", from = "src" }]
+version = "0.0.0"  # Placeholder required by Poetry parser
 
 [tool.poetry.requires-plugins]
 poetry-dynamic-versioning = { version = ">=1.0.0,<2.0.0", extras = ["plugin"] }
@@ -35,6 +35,8 @@ style = "pep440"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
+flake8 = "^7.3.0"
+pytest-cov = "^7.1.0"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
