@@ -7,7 +7,7 @@ name = "ga_core"
 dynamic = ["version"]
 description = "Package containing the core Green Algorithms methodology to estimate resource consumption and carbon footprint of computational workloads"
 authors = [
-    {name = "Green Algorithms",email = "green.algorithms@gmail.com"}
+    {name = "Green Algorithms", email = "green.algorithms@gmail.com"}
 ]
 license = "GPL-3.0-or-later"
 readme = "README.md"
@@ -16,13 +16,17 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
 dependencies = [
-    "pandas (==2.3.2)",
-    "numpy (==2.3.2)",
-    "requests (==2.32.3)",
+    "pandas==2.3.2",
+    "numpy==2.3.2",
+    "requests==2.32.3",
 ]
 
 [tool.poetry]
+version = "0.0.0"  # Placeholder required by Poetry parser
 packages = [{ include = "ga_core", from = "src" }]
+
+[tool.poetry.requires-plugins]
+poetry-dynamic-versioning = { version = ">=1.0.0,<2.0.0", extras = ["plugin"] }
 
 [tool.poetry-dynamic-versioning]
 enable = true
