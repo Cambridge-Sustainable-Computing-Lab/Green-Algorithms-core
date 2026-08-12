@@ -117,8 +117,8 @@ class SlurmUtils:
         return L_partitions[0]
 
     def set_partitionType(self, x):
-        assert x in self.cluster_info.partitions, f"\n-!- Unknown partition: {x} -!-\n"
-        return self.cluster_info.partitions[x].type
+        assert x in self.cluster_info.hardware_profiles.keys(), f"\n-!- Unknown hardware profile: {x} -!-\n"
+        return self.cluster_info.hardware_profiles[x].type
 
     def parse_timedelta(self, x):
         """

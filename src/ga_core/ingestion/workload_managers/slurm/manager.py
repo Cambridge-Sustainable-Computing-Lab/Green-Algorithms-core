@@ -88,7 +88,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
             # Make sure it's either a partition name, or a comma-separated list of partitions
             self.logs_df['PartitionX'] = self.logs_df.apply(self.clean_partition, axis=1)
             self.logs_df['NodesList_'] = self.logs_df.apply(self.clean_nodes_list, axis=1)
-            self.logs_df['HardwareProfile_'] = self.logs_df.apply(self.get_partition_hardware_profile, axis=1)
+            self.logs_df['HardwareProfileX'] = self.logs_df.apply(self.get_partition_hardware_profile, axis=1)
 
             ### Parse datetimes - Submit, Start, End
             self.logs_df['SubmitDatetimeX'] = self.logs_df.Submit.apply(
@@ -151,7 +151,8 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
                 'StateX': 'min',
                 'Account_': 'first',
                 'UIDX': 'first',
-                'UserX': 'first'
+                'UserX': 'first',
+                'HardwareProfileX': 'first'
             })
 
             self.df_agg.loc[self.df_agg.StateX == -1, 'StateX'] = 1 # Turn StateX==-1 into 1 (customSuccessStates are considered successful i.e. 1)
@@ -160,7 +161,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
             self.df_agg['UsedMem2_'] = self.df_agg.apply(self.clean_UsedMem, axis=1)
 
             ### Label as CPU or GPU partition
-            self.df_agg['PartitionTypeX'] = self.df_agg.PartitionX.apply(self.set_partitionType)
+            self.df_agg['PartitionTypeX'] = self.df_agg.HardwareProfileX.apply(self.set_partitionType)
 
             # Just used to clean up with old logs:
             if 'AllocTRES' not in self.logs_df.columns:
