@@ -31,10 +31,10 @@ class EnergyCalculator:
         :return: [pd.Series] the same statistics with the energies added
         '''
         ### CPU and GPU
-        partition_info = None
+        hardware_profile_info = None
 
         try:
-            partition_info = self.cluster_info.partitions[row.PartitionX]
+            hardware_profile_info = self.cluster_info.hardware_profiles[row.HardwareProfileX]
         except KeyError as ke:
             # Raise error if key not found.
             # TODO Make checking of all keys more robust, and explain what to do when a key is missing.
@@ -42,11 +42,11 @@ class EnergyCalculator:
             exit(1)
 
         if row.PartitionTypeX == 'CPU':
-            TDP2use4CPU = partition_info.TDP
+            TDP2use4CPU = hardware_profile_info.TDP
             TDP2use4GPU = 0
         else:
-            TDP2use4CPU = partition_info.TDP_CPU
-            TDP2use4GPU = partition_info.TDP
+            TDP2use4CPU = hardware_profile_info.TDP_CPU
+            TDP2use4GPU = hardware_profile_info.TDP
 
         row['energy_CPUs'] = self.calc_component_energy(row.TotalCPUtime2useX.total_seconds() / 3600, 
                                                         TDP2use4CPU)
