@@ -88,7 +88,6 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
             # Make sure it's either a partition name, or a comma-separated list of partitions
             self.logs_df['PartitionX'] = self.logs_df.apply(self.clean_partition, axis=1)
             self.logs_df['NodesList_'] = self.logs_df.apply(self.clean_nodes_list, axis=1)
-            self.logs_df['HardwareProfileX'] = self.logs_df.apply(self.get_partition_hardware_profile, axis=1)
 
             ### Parse datetimes - Submit, Start, End
             self.logs_df['SubmitDatetimeX'] = self.logs_df.Submit.apply(
@@ -152,13 +151,22 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
                 'Account_': 'first',
                 'UIDX': 'first',
                 'UserX': 'first',
-                'HardwareProfileX': 'first'
+                "NodesList_": 'first',
             })
 
             self.df_agg.loc[self.df_agg.StateX == -1, 'StateX'] = 1 # Turn StateX==-1 into 1 (customSuccessStates are considered successful i.e. 1)
 
             ### Replace UsedMem_=-1 with memory requested (for when MaxRSS=NaN)
             self.df_agg['UsedMem2_'] = self.df_agg.apply(self.clean_UsedMem, axis=1)
+
+            ### Hardware profile per job, based on the partition and the node list
+            self.df_agg['HardwareProfileX'] = self.df_agg.apply(self.get_partition_hardware_profile, axis=1)
+
+            ### Drop jobs where no hardware profile could be determined
+            missing_hw_profile = self.df_agg.HardwareProfileX.isna() | (self.df_agg.HardwareProfileX == '')
+            if missing_hw_profile.sum() > 0:
+                print(f"(!) WARNING: dropping {missing_hw_profile.sum()} jobs with no matching hardware profile")
+            self.df_agg = self.df_agg.loc[~missing_hw_profile]
 
             ### Label as CPU or GPU partition
             self.df_agg['PartitionTypeX'] = self.df_agg.HardwareProfileX.apply(self.set_partitionType)

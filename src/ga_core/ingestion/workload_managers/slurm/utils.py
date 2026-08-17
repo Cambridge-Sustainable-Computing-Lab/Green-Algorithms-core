@@ -289,7 +289,7 @@ class SlurmUtils:
         :param x: data frame
         :return: [list] list of nodes or empty list
         """
-        if pd.isnull(x.NodeList):  # e.g. if it's NaN
+        if 'NodeList' not in x.index or pd.isnull(x.NodeList) or x.NodeList == "" or x.NodeList == "None assigned": 
             return []
         
         nodeList = NodeListUtil().parse_list(x.NodeList)
@@ -303,19 +303,21 @@ class SlurmUtils:
         cluster_partitions = self.cluster_info.partitions
 
         if partition_name not in cluster_partitions:
-            raise ValueError(f"Unknown partition '{partition_name}' in job {x.JobID}. Known partitions: {list(cluster_partitions.keys())}")
+            raise ValueError(f"Unknown partition '{partition_name}'. Known partitions: {list(cluster_partitions.keys())}")
         if cluster_partitions[partition_name].hardware_profile is not None:
             return cluster_partitions[partition_name].hardware_profile
         else:
             # Using NodeList to find the hardware profile
             # x.NodesList_ is a list of nodes on which the job ran, e.g. ['cpu-1', 'cpu-2']
+            if x.NodesList_ is None or len(x.NodesList_) == 0:
+                return None  # No nodes available to determine hardware profile
             for i in x.NodesList_:
                 node_list = cluster_partitions[partition_name].node_list
                 for node_range in node_list:
                     if node_range.contains(i): # checks if the node is in the range
                         return node_range.hardware_profile
                     
-            raise ValueError(f"Could not find hardware profile for job {x.JobID} in partition '{partition_name}' with NodeList {x.NodesList_}. Please check cluster_info configuration.")
+            raise ValueError(f"Could not find hardware profile in partition '{partition_name}' with NodeList {x.NodesList_}. Please check cluster_info configuration.")
                         
 
 class NodeListUtil:
