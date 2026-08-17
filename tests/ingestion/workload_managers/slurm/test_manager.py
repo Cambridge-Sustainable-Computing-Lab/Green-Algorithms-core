@@ -11,7 +11,8 @@ import pytest
 import pandas as pd
 
 from ga_core.data_models.cluster_info_model import ClusterInfo
-from ga_core.ingestion.workload_managers.slurm.manager import SlurmManager, SlurmUtils
+from ga_core.ingestion.workload_managers.slurm.manager import SlurmManager
+from ga_core.ingestion.workload_managers.slurm.utils import SlurmUtils, NodeListUtil
 
 class TestSlurmManager:
     """
@@ -103,3 +104,26 @@ class TestMemory:
         """
         row = pd.Series({'MaxRSS': '3T'})
         assert self.slurm_utils.clean_RSS(row) == 3000.0
+
+class TestNodeListUtil:
+
+    @pytest.fixture
+    def util(self):
+        return NodeListUtil()
+
+    def test_parse_list_simple_and_bracketed(self, util):
+        assert util.parse_list("cpu-p-160,gpu-p-5") == ["cpu-p-160", "gpu-p-5"]
+        assert util.parse_list("cpu-p-[160-165]") == [
+            "cpu-p-160", "cpu-p-161", "cpu-p-162",
+            "cpu-p-163", "cpu-p-164", "cpu-p-165",
+        ]
+
+    def test_parse_list_disjoint_and_zero_padded(self, util):
+        assert util.parse_list("cpu-p-[100,150,199]") == [
+            "cpu-p-100", "cpu-p-150", "cpu-p-199",
+        ]
+        assert util.parse_list("cg[001-002]") == ["cg001", "cg002"]
+
+    def test_parse_list_invalid_range_raises(self, util):
+        with pytest.raises(AssertionError, match="Invalid range"):
+            util.parse_list("cg[5-2]")
