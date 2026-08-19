@@ -303,13 +303,15 @@ class SlurmUtils:
         cluster_partitions = self.cluster_info.partitions
 
         if partition_name not in cluster_partitions:
-            raise ValueError(f"Unknown partition '{partition_name}'. Known partitions: {list(cluster_partitions.keys())}")
+            raise ValueError(f"Unknown partition '{partition_name}' for job {x.name}; Known partitions: {list(cluster_partitions.keys())}")
         if cluster_partitions[partition_name].hardware_profile is not None:
             return cluster_partitions[partition_name].hardware_profile
         else:
             # Using NodeList to find the hardware profile
             # x.NodesList_ is a list of nodes on which the job ran, e.g. ['cpu-1', 'cpu-2']
             if x.NodesList_ is None or len(x.NodesList_) == 0:
+                if x.WallclockTimeX.total_seconds() > 0:
+                    raise ValueError(f"Job {x.name} seems to have run but no nodes were assigned to it.")
                 return None  # No nodes available to determine hardware profile
             for i in x.NodesList_:
                 node_list = cluster_partitions[partition_name].node_list
@@ -317,12 +319,14 @@ class SlurmUtils:
                     if node_range.contains(i): # checks if the node is in the range
                         return node_range.hardware_profile
                     
-            raise ValueError(f"Could not find hardware profile in partition '{partition_name}' with NodeList {x.NodesList_}. Please check cluster_info configuration.")
+            raise ValueError(f"Could not find hardware profile in partition '{partition_name}' with NodeList {x.NodesList_} for job {x.name}. Please check cluster_info configuration.")
                         
 
 class NodeListUtil:
     """
     A utility class for parsing and handling SLURM node lists.
+
+    Picked from 'magic slurm node list parser' https://gist.github.com/ebirn/cf52876120648d7d85501fcbf185ff07
     """
 
     def parse_int(self, s):
