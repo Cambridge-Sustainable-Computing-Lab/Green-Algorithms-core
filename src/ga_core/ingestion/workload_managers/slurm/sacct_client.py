@@ -3,6 +3,7 @@
 # ------------------------------------------------------------------
 
 import subprocess
+import re
 
 class SacctClient:
     """
@@ -18,6 +19,55 @@ class SacctClient:
                 "-P",
                 "-L"  # All clusters
             ]
+    
+    @classmethod
+    def screen_sacct_rows(cls, data: bytes) -> tuple[bytes, list[str]]:
+        """
+        Preliminary schema check on raw sacct output.
+        
+        Checks done:
+        1. Row must have the expected number of fields
+        2. Row must not begin with a non-alphanumeric/special character
+        3. Rows that fail either check are logged, not silently dropped/altered
+
+        :param data: raw bytes 
+        :return: (cleaned_bytes, quarantined_lines)
+        """
+        VALID_LEADING_CHAR = re.compile(r'^[A-Za-z0-9]')
+        expected_field_count = len(cls.sacct_fields)
+        expected_header = '|'.join(cls.sacct_fields)
+
+        text = data.decode('utf-8', errors='replace')
+        rows = text.splitlines()
+
+        screened_rows = []
+        malformed_rows = []
+        header_seen = False
+
+        for row in rows:
+            if not row.strip():
+                continue
+
+            if not header_seen and row == expected_header:
+                screened_rows.append(row)
+                header_seen = True
+                continue
+
+            if not VALID_LEADING_CHAR.match(row):
+                malformed_rows.append(f"[invalid_leading_char] {row}")
+                continue
+
+            row_field_count = len(row.split('|'))
+            if row_field_count != expected_field_count:
+                malformed_rows.append(
+                    f"[field_count={row_field_count}, expected={expected_field_count}] {row}"
+                )
+                continue
+
+            screened_rows.append(row)
+
+        screened_text = '\n'.join(screened_rows) + '\n'
+        return screened_text.encode('utf-8'), malformed_rows
     
     @classmethod
     def pull_logs_by_time(cls, startDay, endDay, all_users=False):

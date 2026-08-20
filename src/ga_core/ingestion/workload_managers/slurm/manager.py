@@ -4,11 +4,14 @@
 # ------------------------------------------------------------------
 
 import datetime
+import logging
 import pandas as pd
 
 from ga_core.ingestion.workload_managers.base import BaseWorkloadManager
 from ga_core.ingestion.workload_managers.slurm.utils import SlurmUtils
 from ga_core.ingestion.workload_managers.slurm.sacct_client import SacctClient
+
+logger = logging.getLogger(__name__)
 
 class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
     """
@@ -38,11 +41,18 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
         More: https://slurm.schedmd.com/sacct.html
         """
         try:
-            self.logs_raw = SacctClient.pull_logs_by_time(
+            logs = SacctClient.pull_logs_by_time(
                 self.config_data['startDay'],
                 self.config_data['endDay'],
                 self.config_data['all_users_access']
             )
+            self.lows_raw, malformed_rows = SacctClient.screen_sacct_rows(logs)
+            if malformed_rows:
+                logger.warning(f"{len(malformed_rows)} row(s) dropped during sacct row prescreen")
+                logger.debug(f"Malformed rows: {malformed_rows}")
+            else:
+                logger.info(f"Pulled sacct logs with no malformed rows")
+
         except Exception as e:
             raise RuntimeError(f"Failed to pull logs using config {self.config_data}: {e}") from e     
     
@@ -52,9 +62,13 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
         NB: the name of the columns ending with X need to be conserved, as they are used by the main script.
         """
         self.raw_logs_to_df()
+        logger.info(f"Loaded {len(self.logs_df)} raw log rows into dataframe")
+
         self.logs_df = self.filter_finished_jobs() # Keep only those jobs that have finished - i.e. contains a valid End date/ finished state
+        logger.info(f"{len(self.logs_df)} rows remain after filtering for finished jobs")
 
         if self.logs_df.empty:
+            logger.error(f"No finished jobs found for period {self.config_data['startDay']} to {self.config_data['endDay']}")
             raise ValueError(f"No finished jobs found in the logs for the period {self.config_data['startDay']} to {self.config_data['endDay']}")     
         else:
             ### Calculate real memory usage
@@ -165,7 +179,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
             ### Drop jobs where no hardware profile could be determined
             missing_hw_profile = self.df_agg.HardwareProfileX.isna() | (self.df_agg.HardwareProfileX == '')
             if missing_hw_profile.sum() > 0:
-                print(f"(!) WARNING: dropping {missing_hw_profile.sum()} jobs with no matching hardware profile")
+                logger.warning(f"Dropping {missing_hw_profile.sum()} jobs with no matching hardware profile")
             self.df_agg = self.df_agg.loc[~missing_hw_profile]
 
             ### Label as CPU or GPU partition
@@ -182,9 +196,9 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
 
             ## Check that there is no missing UID/User
             if self.df_agg.UIDX.isnull().sum() > 0:
-                print(f"(!) WARNING: {self.df_agg.UIDX.isnull().sum()} jobs have missing UIDs")
+                logger.warning(f"{self.df_agg.UIDX.isnull().sum()} jobs have missing UIDs")
             if self.df_agg.UserX.isnull().sum() > 0:
-                print(f"(!) WARNING: {self.df_agg.UserX.isnull().sum()} jobs have missing Usernames")
+                logger.warning(f"{self.df_agg.UserX.isnull().sum()} jobs have missing Usernames")
 
             ### add the usage time to use for calculations
             self.df_agg['TotalCPUtime2useX'] = self.df_agg.apply(self.calc_CPUusage2use, axis=1)
@@ -226,6 +240,8 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
                     self.df_agg = self.df_agg.loc[self.df_agg.Account_ == self.config_data['filterAccount']]
 
             self.df_agg_X = self.df_agg[[x for x in self.df_agg.columns if x[-1] == 'X']]
+            
+            logger.info(f"clean_logs produced {len(self.df_agg_X)} aggregated job rows")
             return self.df_agg_X
 
     def validate_raw_logs(self, logs_raw: bytes = None):
