@@ -1,0 +1,14 @@
+UID|User|JobID|JobName|Submit|Start|End|Elapsed|Partition|NNodes|NCPUS|TotalCPU|CPUTime|ReqMem|MaxRSS|WorkDir|State|Account|AllocTRES|NodeList
+11111|uid_1|700001|notebook|2026-03-30T05:10:00|2026-03-30T05:20:00|2026-03-30T08:10:00|02:50:00|yew-himem|1|8|22:40:00|22:40:00|16G|6G|/home/uid_1/project|COMPLETED|research|billing=8,cpu=8,mem=16G,node=1|cpu-p-160
+11112|uid_2|700002|multinode_train|2026-03-30T06:00:00|2026-03-30T06:05:00|2026-03-30T10:05:00|04:00:00|oak|6|48|4-00:00:00|24:00:00|64G|31G|/home/uid_2/project|COMPLETED|research|billing=48,cpu=48,mem=64G,node=6|cpu-p-[160-165]
+11112|uid_2|700002.batch|batch|2026-03-30T06:00:00|2026-03-30T06:05:00|2026-03-30T10:05:00|04:00:00||1|8|16:00:00|04:00:00|64G|31G|/home/uid_2/project|COMPLETED|research|billing=8,cpu=8,mem=10G,node=1|cpu-p-160
+11112|uid_2|700002.extern|extern|2026-03-30T06:00:00|2026-03-30T06:05:00|2026-03-30T10:05:00|04:00:00||6|48|00:00:00|00:00:00|64G|0|/home/uid_2/project|COMPLETED|research|billing=48,cpu=48,mem=64G,node=6|cpu-p-[160-165]
+11112|uid_2|700002.0|mpi_step|2026-03-30T06:05:10|2026-03-30T06:05:10|2026-03-30T10:04:50|03:59:40||6|48|3-23:41:20|23:58:40|64G|31G|/home/uid_2/project|COMPLETED|research|billing=48,cpu=48,mem=64G,node=6|cpu-p-[160-165]
+11114|uid_4|700004|gpu_batch|2026-03-30T08:00:00|2026-03-30T08:01:00|2026-03-30T14:01:00|06:00:00|oak|4|32|1-00:00:00|24:00:00|128G|64G|/home/uid_4/project|COMPLETED|research|billing=32,cpu=32,mem=128G,node=4,gres/gpu=4|gpu-p-[1-4]
+11115|uid_5|700005|edge_lower|2026-03-30T09:00:00|2026-03-30T09:01:00|2026-03-30T09:31:00|00:30:00|oak|1|8|00:30:00|00:30:00|16G|4G|/home/uid_5/project|COMPLETED|research|billing=8,cpu=8,mem=16G,node=1|cpu-p-100
+11116|uid_5|700006|edge_upper|2026-03-30T09:35:00|2026-03-30T09:36:00|2026-03-30T10:06:00|00:30:00|oak|1|8|00:30:00|00:30:00|16G|4G|/home/uid_5/project|COMPLETED|research|billing=8,cpu=8,mem=16G,node=1|cpu-p-200
+11119|uid_6|700009|still_pending|2026-03-30T11:00:00|||00:00:00|oak|1|8|00:00:00|00:00:00|16G||/home/uid_6/project|PENDING|research|billing=8,cpu=8,mem=16G,node=1|None assigned
+11120|uid_7|700010|cancelled_early|2026-03-30T11:05:00||2026-03-30T11:06:00|00:00:00|oak|1|8|00:00:00|00:00:00|16G||/home/uid_7/project|CANCELLED by 11120|research|billing=8,cpu=8,mem=16G,node=1|None assigned
+11121|uid_8|700011|timed_out|2026-03-30T12:00:00|2026-03-30T12:01:00|2026-03-30T13:01:00|01:00:00|oak|3|24|1-00:00:00|03:00:00|48G|22G|/home/uid_8/project|TIMEOUT|research|billing=24,cpu=24,mem=48G,node=3|cpu-p-[170-172]
+11122|uid_9|700012|failed_run|2026-03-30T13:00:00|2026-03-30T13:01:00|2026-03-30T13:11:00|00:10:00|yew-himem|1|8|00:10:00|00:10:00|16G|3G|/home/uid_9/project|FAILED|research|billing=8,cpu=8,mem=16G,node=1|yew-h-045
+11124|uid_11|700013|disjoint_multi|2026-03-30T15:00:00|2026-03-30T15:02:00|2026-03-30T15:32:00|00:30:00|oak|3|24|01:30:00|01:30:00|48G|18G|/home/uid_11/project|COMPLETED|research|billing=24,cpu=24,mem=48G,node=3|cpu-p-[100,150,199]
