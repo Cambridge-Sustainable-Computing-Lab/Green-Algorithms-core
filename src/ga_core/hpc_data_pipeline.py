@@ -50,7 +50,7 @@ class HPCDataProcessor:
         :return: [pd.DataFrame] cleaned logs where each row represents one job
         """
         try:
-            logger.info("HPCDataProcessor: Starting data extraction pipeline.")
+            logger.info("Starting data extraction pipeline.")
             if 'use_mock_agg_data' in self.config_data.keys(): # DEBUGONLY Create/use some mock jobs with different users
                 return utils.get_mock_agg_data()
             
@@ -71,11 +71,11 @@ class HPCDataProcessor:
                 if len(set(df_agg.UserX)) > 1:
                     raise ValueError(f"'all_users_access' is False yet more than one user's logs was included")
                 
-            logger.info("HPCDataProcessor: Data extraction completed successfully.")
+            logger.info("Data extraction completed successfully.")
             return df_agg
         
         except Exception as e: # TODO: More robust exception handling
-            logger.exception(f"HPCDataProcessor: Failed to extract data from workload manager: {e}")
+            logger.exception(f"Failed to extract data from workload manager: {e}")
             raise RuntimeError(f"extract_data(): failed to extract data from workload manager: {e}") from e
     
     def enrich_data(self, df: pd.DataFrame, ci_store: CIStorageBackend = None) -> pd.DataFrame:
@@ -86,7 +86,7 @@ class HPCDataProcessor:
         :param GA [GA_tools] A GA_tools object. 
         :return: [pd.DataFrame] The enriched data.
         """
-        logger.info(f"HPCDataProcessor: Starting data enrichment pipeline for {len(df)} jobs...")
+        logger.info(f"Starting data enrichment pipeline for {len(df)} jobs...")
         try: 
             ### Fetching Carbon Intensity
             postcode = self.cluster_info.postcode
@@ -108,7 +108,7 @@ class HPCDataProcessor:
             ## Context metrics
             df = ContextMetricsCalculator(self.cluster_info, self.fixed_params).run(df)
 
-            logger.info("HPCDataProcessor: Data enrichment completed successfully.")
+            logger.info("Data enrichment completed successfully.")
             return df
         
         except Exception as e: # TODO: More robust exception handling
