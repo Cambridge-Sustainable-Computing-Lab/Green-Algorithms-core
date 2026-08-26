@@ -12,6 +12,7 @@ import pandas as pd
 
 from ga_core.data_models.cluster_info_model import ClusterInfo
 from ga_core.ingestion.workload_managers.slurm.manager import SlurmManager
+from ga_core.ingestion.workload_managers.slurm.sacct_client import SacctClient
 from ga_core.ingestion.workload_managers.slurm.utils import SlurmUtils, NodeListUtil
 
 class TestSlurmManager:
@@ -30,6 +31,14 @@ class TestSlurmManager:
         }
         self.test_config = config_data
 
+    def make_manager(self, config_data):
+        """
+        Builds a SlurmManager instance.
+        """
+        wm = object.__new__(SlurmManager)
+        wm.config_data = config_data
+        return wm
+
     def test_mixed_states_sub_jobs(self):
         """
         Scenario: A job has sub-jobs with mixed states, i.e. some of them are completed and some still running. 
@@ -45,6 +54,52 @@ class TestSlurmManager:
         # Raises ValueError since no finished jobs found
         with pytest.raises(ValueError):
             wm.clean_logs()
+
+
+    # Tests for SlurmManager.pull_logs(): responsible for pulling raw logs via `sacct`
+    def test_pull_logs_calls_sacct_with_expected_args(self, monkeypatch, config_data):
+        """
+        Scenario: pull_logs() should call SacctClient.pull_logs_by_time with the
+        startDay and endDay values from config_data, and store
+        the result on the instance.
+        """
+        calls = {}
+        fake_raw_logs = b"JobID|User|State\n123|puppy|COMPLETED\n"
+
+        def mock_pull_logs_by_time(start_day, end_day, all_users_access):
+            calls["args"] = (start_day, end_day, all_users_access)
+            return fake_raw_logs
+
+        monkeypatch.setattr(
+            SacctClient, "pull_logs_by_time", staticmethod(mock_pull_logs_by_time)
+        )
+
+        slurm_manager = self.make_manager(config_data)
+        slurm_manager.pull_logs()
+
+        assert calls["args"] == ("2026-01-01", "2026-04-01", True) # checks if arguments match ones defined in config in conftest.py
+        assert slurm_manager.logs_raw == fake_raw_logs
+
+
+    def test_pull_logs_wraps_exceptions_in_runtime_error(self, monkeypatch, config_data, caplog):
+        """
+        Scenario: If SacctClient.pull_logs_by_time raises an error, pull_logs() should re-raise as a RuntimeError
+        """
+        def failing_pull_logs_by_time(*args, **kwargs):
+            raise ConnectionError("sacct not reachable")
+
+        monkeypatch.setattr(
+            SacctClient, "pull_logs_by_time", staticmethod(failing_pull_logs_by_time)
+        )
+
+        slurm_manager = self.make_manager(config_data)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            slurm_manager.pull_logs()
+
+        assert "Failed to pull logs" in str(exc_info.value)
+        assert "sacct not reachable" in str(exc_info.value)
+        assert isinstance(exc_info.value.__cause__, ConnectionError) # original exception should be chained
 
 class TestMemory:
     @pytest.fixture(autouse=True)

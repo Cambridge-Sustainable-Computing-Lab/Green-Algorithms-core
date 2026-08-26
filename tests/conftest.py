@@ -17,6 +17,7 @@ def config_data():
         "db_name": "ga_dev",
         "db_host": "localhost",
         "db_port": 5432,
+        "all_users_access": True
     }
 
 @pytest.fixture

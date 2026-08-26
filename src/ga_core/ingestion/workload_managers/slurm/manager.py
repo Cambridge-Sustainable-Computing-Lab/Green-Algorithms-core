@@ -41,19 +41,15 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
         More: https://slurm.schedmd.com/sacct.html
         """
         try:
-            logs = SacctClient.pull_logs_by_time(
+            logger.info(f"Pulling logs via sacct for the time period {self.config_data['startDay']} - {self.config_data['endDay']}")
+            self.logs_raw = SacctClient.pull_logs_by_time(
                 self.config_data['startDay'],
                 self.config_data['endDay'],
                 self.config_data['all_users_access']
             )
-            self.lows_raw, malformed_rows = SacctClient.screen_sacct_rows(logs)
-            if malformed_rows:
-                logger.warning(f"{len(malformed_rows)} row(s) dropped during sacct row prescreen")
-                logger.debug(f"Malformed rows: {malformed_rows}")
-            else:
-                logger.info(f"Pulled sacct logs with no malformed rows")
-
+            logger.info(f"Successfully pulled raw logs.")
         except Exception as e:
+            logger.exception(f"Failed to pull logs using config {self.config_data}: {e}")
             raise RuntimeError(f"Failed to pull logs using config {self.config_data}: {e}") from e     
     
     def clean_logs(self):
