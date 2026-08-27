@@ -3,6 +3,7 @@
 # ------------------------------------------------------------------
 
 import subprocess
+import re
 
 class SacctClient:
     """

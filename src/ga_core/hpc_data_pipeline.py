@@ -7,6 +7,7 @@
 # ------------------------------------------------------------------
 
 import pandas as pd
+import logging
 from ga_core.computation.carbon import CarbonCalculator
 from ga_core.computation.carbon_intensity.ci_store import CIStorageBackend
 from ga_core.computation.context_metrics import ContextMetricsCalculator
@@ -15,6 +16,8 @@ from ga_core.data_models.cluster_info_model import ClusterInfo
 from ga_core.ingestion.workload_managers import BaseWorkloadManager
 from ga_core.computation.carbon_intensity.carbon_intensity import CarbonIntensityService
 from ga_core.utils import utils
+
+logger = logging.getLogger(__name__)
 
 class HPCDataProcessor:
     """
@@ -47,6 +50,7 @@ class HPCDataProcessor:
         :return: [pd.DataFrame] cleaned logs where each row represents one job
         """
         try:
+            logger.info("Starting data extraction pipeline.")
             if 'use_mock_agg_data' in self.config_data.keys(): # DEBUGONLY Create/use some mock jobs with different users
                 return utils.get_mock_agg_data()
             
@@ -57,6 +61,7 @@ class HPCDataProcessor:
                                             logs_raw=logs_raw)
             
             df_agg = WM.extract_logs()  # Pull and clean logs
+            logger.info(f"Extracted {len(df_agg)} jobs from workload manager.")
 
             # Check if there are any jobs during the period from this directory and with these jobIDs
             utils.check_empty_results(df_agg, self.config_data)
@@ -64,11 +69,13 @@ class HPCDataProcessor:
             # Check that there is only one user's data if no admin right
             if not self.config_data['all_users_access']:
                 if len(set(df_agg.UserX)) > 1:
-                    raise ValueError(f"More than one user's logs was included, despite --slurmAdmin not used: {set(df_agg.UserX)}")
-
+                    raise ValueError(f"'all_users_access' is False yet more than one user's logs was included")
+                
+            logger.info("Data extraction completed successfully.")
             return df_agg
         
         except Exception as e: # TODO: More robust exception handling
+            logger.exception(f"Failed to extract data from workload manager: {e}")
             raise RuntimeError(f"extract_data(): failed to extract data from workload manager: {e}") from e
     
     def enrich_data(self, df: pd.DataFrame, ci_store: CIStorageBackend = None) -> pd.DataFrame:
@@ -79,6 +86,7 @@ class HPCDataProcessor:
         :param GA [GA_tools] A GA_tools object. 
         :return: [pd.DataFrame] The enriched data.
         """
+        logger.info(f"Starting data enrichment pipeline for {len(df)} jobs...")
         try: 
             ### Fetching Carbon Intensity
             postcode = self.cluster_info.postcode
@@ -87,6 +95,9 @@ class HPCDataProcessor:
                 postcode = postcode[:3] # Taking only the first three letters from the postcode
                 ci_service = CarbonIntensityService(postcode, ci_store)
                 ci_avg_data = ci_service.calc_day_average_CI(df.StartDatetimeX.min(), df.EndDatetimeX.max())
+                logger.info("Carbon intensity data fetched successfully.")
+            else:
+                logger.info("No postcode provided in cluster info; skipping carbon intensity lookup.")
             
             ## Energy
             df = EnergyCalculator(self.cluster_info, self.fixed_params).run(df)
@@ -97,7 +108,9 @@ class HPCDataProcessor:
             ## Context metrics
             df = ContextMetricsCalculator(self.cluster_info, self.fixed_params).run(df)
 
+            logger.info("Data enrichment completed successfully.")
             return df
         
         except Exception as e: # TODO: More robust exception handling
-            raise RuntimeError(f"enrich_data(): failed to extract data from workload manager: {e}") from e
+            logger.exception(f"enrich_data(): failed to enrich data from workload manager: {e}")
+            raise RuntimeError(f"enrich_data(): failed to enrich data from workload manager: {e}") from e
