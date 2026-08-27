@@ -112,5 +112,5 @@ class HPCDataProcessor:
             return df
         
         except Exception as e: # TODO: More robust exception handling
-            logger.exception(f"enrich_data(): failed to extract data from workload manager: {e}")
-            raise RuntimeError(f"enrich_data(): failed to extract data from workload manager: {e}") from e
+            logger.exception(f"enrich_data(): failed to enrich data from workload manager: {e}")
+            raise RuntimeError(f"enrich_data(): failed to enrich data from workload manager: {e}") from e
