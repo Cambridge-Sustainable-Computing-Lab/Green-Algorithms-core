@@ -25,7 +25,7 @@ class SlurmUtils:
         :param unit: [str] unit of `memory`, has to be one of ['M', 'G', 'K', 'T']
         :return: [float] memory in GB.
         """
-        assert unit in ['M', 'G', 'K', 'T'] 
+        assert unit in ['M', 'G', 'K', 'T'], f"Unrecognised memory unit {unit!r}; expected one of ['M', 'G', 'K', 'T']" 
         if unit == 'M':
             memory /= 1e3
         elif unit == 'K':
@@ -78,7 +78,7 @@ class SlurmUtils:
         elif x.MaxRSS == '0':
             memory = 0
         else:
-            assert isinstance(x.MaxRSS, str)
+            assert isinstance(x.MaxRSS, str), f"Expected MaxRSS to be a string, got {type(x.MaxRSS)} for job {x.get('JobID', '?')}: {x.MaxRSS!r}"
             # Special case for the situation where MaxRSS is of the form '154264' without a unit.
             if x.MaxRSS[-1].isalpha():
                 memory = self.convert_to_GB(float(x.MaxRSS[:-1]), x.MaxRSS[-1])
@@ -197,7 +197,7 @@ class SlurmUtils:
         if x.PartitionTypeX != 'GPU':
             return datetime.timedelta(0)
         if x.WallclockTimeX.total_seconds() > 0:
-            assert x.NGPUS_ != 0
+            assert x.NGPUS_ != 0, f"Job {x.get('single_jobID', '?')} ran with nonzero wallclock time but NGPUS_ == 0"
         return x.WallclockTimeX * x.NGPUS_  # NB assuming usage factor of 100% for GPUs
 
     def calc_coreHoursCharged(self, x):
