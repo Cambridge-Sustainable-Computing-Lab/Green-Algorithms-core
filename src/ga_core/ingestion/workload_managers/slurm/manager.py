@@ -186,8 +186,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
                 self.df_agg.loc[self.df_agg.PartitionTypeX == 'GPU', 'NGPUS_'] = 1  # TODO remove after a while
 
             # Sanity check (no GPU logged for CPU partitions and vice versa)
-            cpu_hardware_prof_with_gpus = self.df_agg.loc[(self.df_agg.PartitionTypeX == 'CPU') & (self.df_agg.NGPUS_ != 0)]
-            assert cpu_hardware_prof_with_gpus.empty, f"Found job(s) on a CPU partition with NGPUS_ != 0"
+            assert (self.df_agg.loc[self.df_agg.PartitionTypeX == 'CPU'].NGPUS_ == 0).all(), f"Found job(s) on a CPU partition with non-zero NGPUS_"
 
             # Cancelled GPU jobs won't have any GPUs allocated if they didn't start
             foo = self.df_agg.loc[(self.df_agg.PartitionTypeX == 'GPU') & (self.df_agg.NGPUS_ == 0)]
