@@ -187,12 +187,12 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
 
             # Sanity check (no GPU logged for CPU partitions and vice versa)
             cpu_hardware_prof_with_gpus = self.df_agg.loc[(self.df_agg.PartitionTypeX == 'CPU') & (self.df_agg.NGPUS_ != 0)]
-            assert cpu_hardware_prof_with_gpus.empty, f"Found job(s) on a CPU partition with NGPUS_ != 0: {cpu_hardware_prof_with_gpus.single_jobID.tolist()}"
+            assert cpu_hardware_prof_with_gpus.empty, f"Found job(s) on a CPU partition with NGPUS_ != 0"
 
             # Cancelled GPU jobs won't have any GPUs allocated if they didn't start
             foo = self.df_agg.loc[(self.df_agg.PartitionTypeX == 'GPU') & (self.df_agg.NGPUS_ == 0)]
             failed_gpu_jobs = foo.loc[foo.WallclockTimeX.dt.total_seconds() != 0]
-            assert failed_gpu_jobs.empty, (f"Found {len(failed_gpu_jobs)} GPU-partition job(s) with NGPUS_ == 0 but nonzero wallclock time: {failed_gpu_jobs.single_jobID.tolist()}")
+            assert failed_gpu_jobs.empty, (f"Found {len(failed_gpu_jobs)} GPU-partition job(s) with NGPUS_ == 0 but nonzero wallclock time")
 
             ## Check that there is no missing UID/User
             if self.df_agg.UIDX.isnull().sum() > 0:
