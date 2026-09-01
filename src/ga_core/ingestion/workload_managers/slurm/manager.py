@@ -1,289 +1,17 @@
 # ------------------------------------------------------------------
 # This file implements the BaseWorkloadManager abstract class for SLURM.
-# It contains SLURM specifc utility functions to perform some pre-processing steps to SLURM logs.
+# It contains SLURM specifc functions to pull and clean logs.
 # ------------------------------------------------------------------
 
 import datetime
+import logging
 import pandas as pd
-import numpy as np
 
 from ga_core.ingestion.workload_managers.base import BaseWorkloadManager
-from ga_core.utils import utils
+from ga_core.ingestion.workload_managers.slurm.utils import SlurmUtils
 from ga_core.ingestion.workload_managers.slurm.sacct_client import SacctClient
 
-class SlurmUtils:
-    """
-    A utility class for processing and analyzing SLURM data from HPC cluster job schedulers. 
-    Handles data transformation, parsing, cleaning, and metric calculations to support 
-    cluster resource management and performance analysis.
-    """
-    def __init__(self, cluster_info):
-        self.cluster_info = cluster_info
-        self.unfinished_states = ['PENDING','RUNNING','SUSPENDED','UNKNOWN','PREEMPTED'] # States from SLURM documentation: https://slurm.schedmd.com/job_state_codes.html (as of 10 Feb 2026)
-        
-    def convert_to_GB(self, memory, unit):
-        """
-        Converts data quantity into GB.
-        :param memory: [float] quantity to convert
-        :param unit: [str] unit of `memory`, has to be one of ['M', 'G', 'K', 'T']
-        :return: [float] memory in GB.
-        """
-        assert unit in ['M', 'G', 'K', 'T'] 
-        if unit == 'M':
-            memory /= 1e3
-        elif unit == 'K':
-            memory /= 1e6
-        elif unit == 'T':
-            memory *= 1e3
-        return memory
-
-    def calc_ReqMem(self, x):
-        """
-        Calculates the total memory required when submitting the job.
-        :param x: [pd.Series] one row of sacct output.
-        :return: [float] total required memory, in GB.
-
-        ReqMem Amount of memory requested; suffixed with 'c' if per CPU, 'n' if per node
-        """
-        mem_raw, n_nodes, n_cores = x['ReqMem'], x['NNodes'], x['NCPUS']
-        valid_units = ['M', 'G', 'K', 'T']
-
-        if pd.isnull(mem_raw) or mem_raw in ('0', '0n', '0c'):
-            return self.convert_to_GB(0, 'G')
-
-        elif mem_raw[-1] == 'n':
-            unit = mem_raw[-2]
-            memory = float(mem_raw[:-2]) * n_nodes
-        elif mem_raw[-1] == 'c':
-            unit = mem_raw[-2]
-            memory = float(mem_raw[:-2]) * n_cores
-        elif mem_raw[-1] in valid_units:
-            unit = mem_raw[-1]
-            memory = float(mem_raw[:-1])
-        else:
-            unit = None
-
-        if unit not in valid_units:
-            raise ValueError(f"Can't parse memory value: {mem_raw}. Please raise issue on GitHub.")
-
-        return self.convert_to_GB(memory, unit)
-
-    def clean_RSS(self, x):
-        """
-        Cleans the RSS value in sacct output.
-        :param x: [NaN or str] the RSS value, either NaN or of the form '2745K'
-        (optionally, just a number, we then use default_unit_RSS from cluster_info.yaml as unit).
-        :return: [float] RSS value, in GB.
-        """
-        if pd.isnull(x.MaxRSS):
-            # NB if no info on MaxRSS, we assume all memory was used
-            memory = -1
-        elif x.MaxRSS == '0':
-            memory = 0
-        else:
-            assert isinstance(x.MaxRSS, str)
-            # Special case for the situation where MaxRSS is of the form '154264' without a unit.
-            if x.MaxRSS[-1].isalpha():
-                memory = self.convert_to_GB(float(x.MaxRSS[:-1]), x.MaxRSS[-1])
-            else:
-                assert 'default_unit_RSS' in self.cluster_info, "Some values of MaxRSS don't have a unit. Please specify a default_unit_RSS in cluster_info.yaml"
-                memory = self.convert_to_GB(float(x.MaxRSS), self.cluster_info.default_unit_RSS)
-
-        return memory
-
-    def clean_UsedMem(self, x):
-        """
-        Cleans the UsedMemory column
-        :param x:
-        :return: [float]
-        """
-        # NB when MaxRSS didn't store any values, we assume that "memory used = memory requested"
-        return x.ReqMemX if x.UsedMem_ == -1 else x.UsedMem_
-
-    def clean_partition(self, x):
-        """
-        Cleans the partition field, by replacing NaNs with empty string and selecting just one partition per job.
-        :param x: data frame
-        :return: [str] one partition or empty string
-
-        x.Partition is [str] partition or comma-separated list of partitions
-        """
-        if pd.isnull(x.Partition):  # e.g. if it's NaN
-            return ''
-
-        L_partitions = x.Partition.split(',')
-        if (x.WallclockTimeX.total_seconds() > 0) & (len(L_partitions) > 1):
-            # Multiple partitions logged is only an issue for jobs that never started,
-            # for the others, only the used partition is logged
-            print(f"\n-!- WARNING: Multiple partitions logged on a job than ran: {x.JobID} - {x.Partition} (using the first one)\n")
-        return L_partitions[0]
-
-    def set_partitionType(self, x):
-        assert x in self.cluster_info.partitions, f"\n-!- Unknown partition: {x} -!-\n"
-        return self.cluster_info.partitions[x].type
-
-    def parse_timedelta(self, x):
-        """
-        Parse a string representing a duration into a `datetime.timedelta` object.
-        :param x: [str] Duration, as '[DD-HH:MM:]SS[.MS]'
-        :return: [datetime.timedelta] Timedelta object
-        """
-        # Parse number of days
-        day_split = x.split('-')
-        if len(day_split) == 2:
-            n_days = int(day_split[0])
-            HHMMSSms = day_split[1]
-        else:
-            n_days = 0
-            HHMMSSms = x
-
-        # Parse ms
-        ms_split = HHMMSSms.split('.')
-        if len(ms_split) == 2:
-            n_ms = int(ms_split[1])
-            HHMMSS = ms_split[0]
-        else:
-            n_ms = 0
-            HHMMSS = HHMMSSms
-
-        # Parse HH,MM,SS
-        last_split = HHMMSS.split(':')
-        if len(last_split) == 3:
-            to_add = []
-        elif len(last_split) == 2:
-            to_add = ['00']
-        elif len(last_split) == 1:
-            to_add = ['00', '00']
-        else:
-            raise ValueError(f"Can't parse {x}")
-        n_h, n_m, n_s = list(map(int, to_add + last_split))
-
-        return datetime.timedelta(
-            days=n_days, hours=n_h, minutes=n_m, seconds=n_s, milliseconds=n_ms
-        )
-
-    def calc_realMemNeeded(self, x, granularity_memory_request):
-        """
-        Calculate the minimum memory needed.
-        This is calculated as the smallest multiple of `granularity_memory_request` that is greater than maxRSS.
-        :param x: [pd.Series] one row of sacct output.
-        :param  granularity_memory_request: [float or int] level of granularity available when requesting memory on this cluster
-        :return: [float] minimum memory needed, in GB.
-        """
-        minimum_mem = (int(x.UsedMem2_ / granularity_memory_request) + 1) * granularity_memory_request
-        return minimum_mem if x.ReqMemX < x.UsedMem2_ else min(x.ReqMemX, minimum_mem)
-
-    def calc_memory_overallocation(self, x):
-        """
-        Calculate the overallocation factor, as the ratio between memory requested and memory needed.
-        
-        :param x: [pd.Series] one row of sacct output.
-        :return: [float] overallocation factor, with 1 meaning no overallocation.
-        """
-        # This is in case ReqMem is wrong or too low
-        if x.NeededMemX == 0 and x.ReqMemX == 0:
-            return 1.0
-        elif x.NeededMemX == 0: # Edge Case - needs revisiting
-            return 10.0  # Arbitrary high value to reflect the fact that there was a lot of overallocation.
-        return max(1.0, x.ReqMemX / x.NeededMemX)
-
-    def calc_CPUusage2use(self, x):
-        if x.TotalCPUtime_.total_seconds() == 0:
-            # This is when the workload manager actually didn't store real usage
-            # NB: when TotalCPU=0, we assume usage factor = 100% for all CPU cores
-            return x.CPUwallclocktime_
-
-        return x.TotalCPUtime_
-
-    def calc_GPUusage2use(self, x):
-        if x.PartitionTypeX != 'GPU':
-            return datetime.timedelta(0)
-        if x.WallclockTimeX.total_seconds() > 0:
-            assert x.NGPUS_ != 0
-        return x.WallclockTimeX * x.NGPUS_  # NB assuming usage factor of 100% for GPUs
-
-    def calc_coreHoursCharged(self, x):
-        '''
-        Split CPU and GPU core hours charged, depending on the partition.
-        :param x:
-        :return: [(float, float)]
-        '''
-        if x.PartitionTypeX == 'CPU':
-            return x.CPUwallclocktime_ / np.timedelta64(1, 'h'), 0.
-        else:
-            return 0., x.WallclockTimeX * x.NGPUS_ / np.timedelta64(1, 'h')
-
-    def clean_State(self, x, customSuccessStates_list):
-        """
-        Standardise the job's state, coding with {-1,0,1}
-        :param x: [str] "State" field from sacct output
-        :return: [int] in [-1,0,1]
-        """
-        # Codes are found here: https://slurm.schedmd.com/squeue.html#SECTION_JOB-STATE-CODES
-        success_codes = ['CD', 'COMPLETED']
-        if x in success_codes:
-            codeState = 1
-        elif x in customSuccessStates_list:
-            # we allocate a lower value here so that when aggregating by jobID, the whole job keeps the flag
-            # Otherwise a "cancelled" job could take over with StateX=0 for example
-            codeState = -1
-        else:
-            codeState = 0
-
-        return codeState
-
-    def get_parent_jobID(self, x):
-        """
-        Get the parent job ID in case of array jobs
-        :param x: [str] JobID of the form 123456789_0 (with or without '_0')
-        :return: [str] Parent ID 123456789
-        """
-        job_id_parts = x.split('_')
-        assert len(job_id_parts) <= 2, f"Can't parse the job ID: {x}"
-        return job_id_parts[0]
-    
-        ### Other utility methods
-    def raw_logs_to_df(self):
-        """
-        Convert raw logs output into a pandas dataframe - calling the static method convert2dataframe
-        """
-        self.logs_df = utils.convert2dataframe(self.logs_raw, types = {'NNodes': 'int64', 'NCPUS': 'int64'}, delimiter="|")
-
-
-    def concat_logs_df(self, new_logs_df: pd.DataFrame):
-        """
-        Concatenate the existing logs dataframe with a new one, for example when we want to add finished jobs to previously-fetched logs.
-        :param new_logs_df: [pd.DataFrame] new logs dataframe to concatenate with the existing one.
-        """
-        if self.logs_df is None:
-            raise ValueError("logs_df is not initialised. Run pull_logs() and raw_logs_to_df() first.")
-        
-        self.logs_df = pd.concat([self.logs_df, new_logs_df], ignore_index=True)
-
-    def filter_finished_jobs(self) -> pd.DataFrame:
-        '''
-        Filter finished jobs from the logs dataframe using the 'End' column if available, else the 'State' column.
-        A job is considered finished only if ALL of its rows (parent + steps) are finished.
-        '''
-        if self.logs_df.empty:
-            return self.logs_df.copy()
-          
-        single_jobID = self.logs_df['JobID'].str.split('.').str[0]
-        
-        if 'End' in self.logs_df:
-            row_finished = self.logs_df['End'].notna() & (self.logs_df['End'] != "Unknown")
-        elif 'State' in self.logs_df.columns:
-            ## NOTE: This is a temporary workaround for retrocompatibility since in earlier versions 'End' field was not fetched. Must be removed eventually.
-            row_finished = ~self.logs_df['State'].isin(self.unfinished_states) 
-        else:
-            raise KeyError(
-                f"Cannot filter finished jobs: neither 'End' nor 'State' columns exist in logs_df. "
-                f"Found columns: {list(self.logs_df.columns)}"
-            )
-        
-        # Group row_finished by single_jobID (aligned by index); True only if all rows in the job finished    
-        job_finished = row_finished.groupby(single_jobID).transform('all')
-        return self.logs_df[job_finished].copy()
+logger = logging.getLogger(__name__)
 
 class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
     """
@@ -313,12 +41,15 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
         More: https://slurm.schedmd.com/sacct.html
         """
         try:
+            logger.info(f"Pulling logs via sacct for the time period {self.config_data['startDay']} - {self.config_data['endDay']}")
             self.logs_raw = SacctClient.pull_logs_by_time(
                 self.config_data['startDay'],
                 self.config_data['endDay'],
                 self.config_data['all_users_access']
             )
+            logger.info(f"Successfully pulled raw logs.")
         except Exception as e:
+            logger.exception(f"Failed to pull logs using config {self.config_data}: {e}")
             raise RuntimeError(f"Failed to pull logs using config {self.config_data}: {e}") from e     
     
     def clean_logs(self):
@@ -327,9 +58,13 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
         NB: the name of the columns ending with X need to be conserved, as they are used by the main script.
         """
         self.raw_logs_to_df()
+        logger.info(f"Loaded {len(self.logs_df)} raw log rows into dataframe")
+
         self.logs_df = self.filter_finished_jobs() # Keep only those jobs that have finished - i.e. contains a valid End date/ finished state
+        logger.info(f"{len(self.logs_df)} rows remain after filtering for finished jobs")
 
         if self.logs_df.empty:
+            logger.error(f"No finished jobs found for period {self.config_data['startDay']} to {self.config_data['endDay']}")
             raise ValueError(f"No finished jobs found in the logs for the period {self.config_data['startDay']} to {self.config_data['endDay']}")     
         else:
             ### Calculate real memory usage
@@ -362,6 +97,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
             ### Clean partition
             # Make sure it's either a partition name, or a comma-separated list of partitions
             self.logs_df['PartitionX'] = self.logs_df.apply(self.clean_partition, axis=1)
+            self.logs_df['NodesList_'] = self.logs_df.apply(self.clean_nodes_list, axis=1)
 
             ### Parse datetimes - Submit, Start, End
             self.logs_df['SubmitDatetimeX'] = self.logs_df.Submit.apply(
@@ -424,7 +160,8 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
                 'StateX': 'min',
                 'Account_': 'first',
                 'UIDX': 'first',
-                'UserX': 'first'
+                'UserX': 'first',
+                "NodesList_": 'first',
             })
 
             self.df_agg.loc[self.df_agg.StateX == -1, 'StateX'] = 1 # Turn StateX==-1 into 1 (customSuccessStates are considered successful i.e. 1)
@@ -432,23 +169,35 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
             ### Replace UsedMem_=-1 with memory requested (for when MaxRSS=NaN)
             self.df_agg['UsedMem2_'] = self.df_agg.apply(self.clean_UsedMem, axis=1)
 
+            ### Hardware profile per job, based on the partition and the node list
+            self.df_agg['HardwareProfileX'] = self.df_agg.apply(self.get_partition_hardware_profile, axis=1)
+
+            ### Drop jobs where no hardware profile could be determined
+            missing_hw_profile = self.df_agg.HardwareProfileX.isna() | (self.df_agg.HardwareProfileX == '')
+            if missing_hw_profile.sum() > 0:
+                logger.warning(f"Dropping {missing_hw_profile.sum()} jobs with no matching hardware profile")
+            self.df_agg = self.df_agg.loc[~missing_hw_profile]
+
             ### Label as CPU or GPU partition
-            self.df_agg['PartitionTypeX'] = self.df_agg.PartitionX.apply(self.set_partitionType)
+            self.df_agg['PartitionTypeX'] = self.df_agg.HardwareProfileX.apply(self.set_partitionType)
 
             # Just used to clean up with old logs:
             if 'AllocTRES' not in self.logs_df.columns:
                 self.df_agg.loc[self.df_agg.PartitionTypeX == 'GPU', 'NGPUS_'] = 1  # TODO remove after a while
 
             # Sanity check (no GPU logged for CPU partitions and vice versa)
-            assert (self.df_agg.loc[self.df_agg.PartitionTypeX == 'CPU'].NGPUS_ == 0).all()
+            assert (self.df_agg.loc[self.df_agg.PartitionTypeX == 'CPU'].NGPUS_ == 0).all(), f"Found job(s) on a CPU partition with non-zero NGPUS_"
+
+            # Cancelled GPU jobs won't have any GPUs allocated if they didn't start
             foo = self.df_agg.loc[(self.df_agg.PartitionTypeX == 'GPU') & (self.df_agg.NGPUS_ == 0)]
-            assert (foo.WallclockTimeX.dt.total_seconds() == 0).all()  # Cancelled GPU jobs won't have any GPUs allocated if they didn't start
+            failed_gpu_jobs = foo.loc[foo.WallclockTimeX.dt.total_seconds() != 0]
+            assert failed_gpu_jobs.empty, (f"Found {len(failed_gpu_jobs)} GPU-partition job(s) with NGPUS_ == 0 but nonzero wallclock time")
 
             ## Check that there is no missing UID/User
             if self.df_agg.UIDX.isnull().sum() > 0:
-                print(f"(!) WARNING: {self.df_agg.UIDX.isnull().sum()} jobs have missing UIDs")
+                logger.warning(f"{self.df_agg.UIDX.isnull().sum()} jobs have missing UIDs")
             if self.df_agg.UserX.isnull().sum() > 0:
-                print(f"(!) WARNING: {self.df_agg.UserX.isnull().sum()} jobs have missing Usernames")
+                logger.warning(f"{self.df_agg.UserX.isnull().sum()} jobs have missing Usernames")
 
             ### add the usage time to use for calculations
             self.df_agg['TotalCPUtime2useX'] = self.df_agg.apply(self.calc_CPUusage2use, axis=1)
@@ -490,6 +239,8 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
                     self.df_agg = self.df_agg.loc[self.df_agg.Account_ == self.config_data['filterAccount']]
 
             self.df_agg_X = self.df_agg[[x for x in self.df_agg.columns if x[-1] == 'X']]
+            
+            logger.info(f"clean_logs produced {len(self.df_agg_X)} aggregated job rows")
             return self.df_agg_X
 
     def validate_raw_logs(self, logs_raw: bytes = None):

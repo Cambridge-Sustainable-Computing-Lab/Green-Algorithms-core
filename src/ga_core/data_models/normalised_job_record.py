@@ -82,4 +82,5 @@ NORMALISED_SCHEMA: dict[str, str] = {
     "UserX":                    "object",
     "UIDX":                     "object",
     "StateX":                   "int64",
+    "HardwareProfileX":         "object",
 }

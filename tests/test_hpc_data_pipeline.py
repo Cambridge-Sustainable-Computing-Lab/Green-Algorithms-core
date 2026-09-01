@@ -112,3 +112,37 @@ class TestHPCDataPipeline:
             rtol=1e-4,
                 )
 
+    def test_multi_hardware_prof_pipeline_completed(self):
+        """
+        Scenario: end-to-end pipeline test using a raw sacct log that exercises a variety of NodeList formats 
+        and job states, to validate that node to hardware profile mapping behaves correctly.
+
+        The input log includes NodeList values such as:
+            - a single node (e.g. 'cpu-p-160')
+            - a compressed contiguous range (e.g. 'cpu-p-[160-165]')
+            - disjoint indices within one bracket (e.g. 'cpu-p-[100,150,199]')
+            - jobs that never received a node allocation ('None assigned')
+        """
+        test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/{self.wm}/raw_logs/multi_node_list.txt'}
+
+        with open(os.path.join(test_config['useCustomLogs']), 'rb') as f:
+            logs_raw = f.read() # Read custom logs
+
+        processor = HPCDataProcessor(
+            config_data=test_config,
+            cluster_info=self.test_cluster_info,
+            fixed_params=self.fixed_params,
+            all_users_access=True,
+                )
+
+        extracted_df = processor.extract_data(logs_raw)
+
+        result = processor.enrich_data(extracted_df)
+        expected = load_expected_csv(f"tests/testdata/{self.wm}/expected/multi_nodes_list_expected.csv")
+        pd.testing.assert_frame_equal(
+        result.reset_index(drop=True),
+        expected[result.columns].reset_index(drop=True),
+            check_exact=False,
+            rtol=1e-4,
+                )
+

@@ -17,6 +17,7 @@ def config_data():
         "db_name": "ga_dev",
         "db_host": "localhost",
         "db_port": 5432,
+        "all_users_access": True
     }
 
 @pytest.fixture
@@ -26,18 +27,41 @@ def cluster_info_dict():
         "cluster_name": "OurCluster",
         "granularity_memory_request": 6.0,
         "workload_manager": "SLURM",
-        "partitions": {
-            "yew-himem": {
-                "type": "CPU", 
-                "model": "Xeon Gold 6142", 
+        "hardware_profiles": {
+            "HP1": {
+                "type": "CPU",
+                "model": "Xeon Gold 6142",
                 "TDP": 9.4
-                },
-            "oak": {
+            },
+            "HP2": {
                 "type": "GPU",
                 "model": "NVIDIA A100-SXM-80GB GPUs",
                 "TDP": 300,
                 "model_CPU": "AMD EPYC 7763",
-                "TDP_CPU": 4.4,
+                "TDP_CPU": 4.4
+            }
+        },
+        "partitions": {
+            "yew-himem": {
+                "homogenous": True,
+                "hardware_profile": "HP1"
+                },
+            "oak": {
+                "homogenous": False,
+                "node_list": [
+                    {
+                        "range": "cpu-p-[10, 20]",
+                        "hardware_profile": "HP1"
+                    },
+                    {
+                        "range": "cpu-p-[100, 200]",
+                        "hardware_profile": "HP1"
+                    },
+                    {
+                        "range": "gpu-p-[1, 20]",
+                        "hardware_profile": "HP2"
+                    }
+                ]
             },
         },
         "PUE": 1.15,
