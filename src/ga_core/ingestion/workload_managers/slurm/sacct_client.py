@@ -11,7 +11,7 @@ class SacctClient:
     Contains separate methods to pull logs in different contexts (by time, by JobID, etc.) and can be extended with more methods as needed.
     """
     sacct_fields = ["UID","User","JobID","JobName","Submit","Start",'End',"Elapsed","Partition","NNodes",
-                "NCPUS","TotalCPU","CPUTime","ReqMem","MaxRSS","WorkDir","State","Account","AllocTRES"]
+                "NCPUS","TotalCPU","CPUTime","ReqMem","MaxRSS","WorkDir","State","Account","AllocTRES","NodeList"]
     bash_com = [
                 "sacct",
                 "--format",
