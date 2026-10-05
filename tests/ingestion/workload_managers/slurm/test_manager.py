@@ -6,14 +6,17 @@
 # ------------------------------------------------------------------
 
 import os
+from datetime import datetime
 
-import pytest
 import pandas as pd
+import pytest
 
 from ga_core.data_models.cluster_info_model import ClusterInfo
 from ga_core.ingestion.workload_managers.slurm.manager import SlurmManager
 from ga_core.ingestion.workload_managers.slurm.sacct_client import SacctClient
-from ga_core.ingestion.workload_managers.slurm.utils import SlurmUtils, NodeListUtil
+from ga_core.ingestion.workload_managers.slurm.utils import NodeListUtil, SlurmUtils
+from tests import helpers
+
 
 class TestSlurmManager:
     """
@@ -25,10 +28,10 @@ class TestSlurmManager:
         Runs automatically before every test in this class.
         """
         
-        self.test_cluster_info = {
+        self.test_cluster_info = ClusterInfo.from_dict({
             **cluster_info_dict,
             "postcode": None, # Postcode is set to none to force static CI from cluster info.
-        }
+        })
         self.test_config = config_data
 
     def make_manager(self, config_data):
@@ -49,7 +52,7 @@ class TestSlurmManager:
         with open(os.path.join(test_config['useCustomLogs']), 'rb') as f:
             logs_raw = f.read() # Read custom logs
 
-        wm = SlurmManager(self.test_config, ClusterInfo.from_dict(self.test_cluster_info), logs_raw)
+        wm = SlurmManager(self.test_config, self.test_cluster_info, logs_raw)
 
         # Raises ValueError since no finished jobs found
         with pytest.raises(ValueError):
@@ -100,6 +103,48 @@ class TestSlurmManager:
         assert "Failed to pull logs" in str(exc_info.value)
         assert "sacct not reachable" in str(exc_info.value)
         assert isinstance(exc_info.value.__cause__, ConnectionError) # original exception should be chained
+
+    @pytest.mark.parametrize("time_format", [
+            "%Y-%m-%d %H:%M:%S",
+            "%m/%d/%y %H:%M:%S",
+            "%d/%m/%Y %H:%M:%S",
+            "%Y-%m-%dT%H:%M",
+            "%d/%m/%y %H:%M",
+        ], ids=lambda f: f)
+    def test_different_log_time_formats(self, time_format):
+        """
+        Scenario: Test that the SlurmManager handles different time formats as specified in the cluster_config
+        This test modifies the raw logs to have the specified time format, and checks that the cleaned logs match the expected output.
+        In every case the cleaned logs should be the same, since the time format is only a display issue. 
+        """
+        self.test_cluster_info.time_format = time_format
+        datetime_cols = ["Start", "End", "Submit"]
+        test_config = {**self.test_config, "useCustomLogs": 'tests/testdata/slurm/raw_logs/single_job_completed.txt'}
+
+        # replacing the datetime columns to the specified time format in the raw logs
+        with open(os.path.join(test_config['useCustomLogs']), 'rb') as f:
+                header = f.readline().rstrip(b"\n").decode("utf-8")
+                new_f = header
+                cols = header.split("|")
+                idx = [cols.index(col) for col in datetime_cols]
+                for line in f:
+                    line = line.rstrip(b"\n").decode("utf-8")
+                    fields = line.split("|")
+                    for i in idx:
+                        fields[i] = datetime.strptime(fields[i], "%Y-%m-%dT%H:%M:%S").strftime(time_format)
+                    new_f += "\n" + "|".join(fields)
+
+        new_f = new_f.encode("utf-8") 
+        wm = SlurmManager(self.test_config, self.test_cluster_info, new_f)
+        cleaned_logs = wm.clean_logs()
+
+        expected = helpers.load_expected_csv("tests/testdata/slurm/expected/single_job_completed_cleaned.csv")
+        pd.testing.assert_frame_equal(
+            cleaned_logs.reset_index(drop=True),
+            expected[cleaned_logs.columns].reset_index(drop=True),
+                check_exact=False,
+                rtol=1e-4,
+                )
 
 class TestMemory:
     @pytest.fixture(autouse=True)
