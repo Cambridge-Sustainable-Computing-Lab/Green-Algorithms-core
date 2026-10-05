@@ -7,7 +7,6 @@
 # ------------------------------------------------------------------
 
 from dataclasses import dataclass, field
-from typing import Optional, Dict
 
 from ga_core.utils import cluster_info_utils
 
@@ -41,8 +40,8 @@ class HardwareProfile:
     TDP: float
 
     # GPU specific
-    model_CPU: Optional[str] = None
-    TDP_CPU: Optional[float] = None
+    model_CPU: str | None = None
+    TDP_CPU: float | None = None
 
     # Validation
     def __post_init__(self):
@@ -57,7 +56,7 @@ class HardwareProfile:
                 raise ValueError(f"[cluster_info] GPU hardware profile {self.name} requires TDP_CPU to be a positive value.")
 
     @classmethod
-    def from_dict(cls, data: Dict, name: Optional[str] = None) -> 'HardwareProfile':
+    def from_dict(cls, data: dict, name: str | None = None) -> 'HardwareProfile':
         """
         Creates a HardwareProfile instance from a dictionary.
         """
@@ -89,7 +88,7 @@ class NodeRange:
         return lower <= int(index_str) <= upper
     
     @classmethod
-    def from_dict(cls, data: Dict, hardware_profiles: Dict[str, HardwareProfile]) -> 'NodeRange':
+    def from_dict(cls, data: dict, hardware_profiles: dict[str, HardwareProfile]) -> 'NodeRange':
         """
         Creates a NodeRange instance from a dictionary and validates that the referenced hardware profile exists.
         """
@@ -111,10 +110,10 @@ class PartitionInfo:
     homogenous: bool
 
     # if homogenous, must provide a hardware profile name or node list with a single entry
-    hardware_profile: Optional[str] = None
+    hardware_profile: str | None = None
 
     # required if not homogenous: each entry describes its own slice of hardware
-    node_list: Optional[list[NodeRange]] = None
+    node_list: list[NodeRange] | None = None
 
     def __post_init__(self):
         if self.homogenous:
@@ -139,7 +138,7 @@ class PartitionInfo:
                 )
 
     @classmethod
-    def from_dict(cls, name: str, data: Dict, hardware_profiles: Dict[str, HardwareProfile]) -> 'PartitionInfo':
+    def from_dict(cls, name: str, data: dict, hardware_profiles: dict[str, HardwareProfile]) -> 'PartitionInfo':
         """
         Creates a PartitionInfo instance from a dictionary.
         """
@@ -191,16 +190,17 @@ class ClusterInfo:
     institution: str
     cluster_name: str
     granularity_memory_request: int
-    partitions: Dict[str, PartitionInfo]
-    hardware_profiles: Dict[str, HardwareProfile]
+    partitions: dict[str, PartitionInfo]
+    hardware_profiles: dict[str, HardwareProfile]
     PUE: float
     CI: float
     energy_cost: EnergyCost
-    postcode: Optional[str] = None
+    postcode: str | None = None
     workload_manager: str = "slurm" # Defaulting to SLURM
+    time_format: str = "%Y-%m-%dT%H:%M:%S"  # Default time format for logs
 
     # Optional parameters if the html output is used.
-    texts_intro: Dict[str, str] = field(default_factory=dict)
+    texts_intro: dict[str, str] = field(default_factory=dict)
     default_unit_RSS: str = "K"
 
     # Validation
@@ -221,7 +221,7 @@ class ClusterInfo:
             raise ValueError("[cluster_info] At least one hardware profile must be defined")
         
     @classmethod
-    def from_dict(cls, data: Dict) -> 'ClusterInfo':
+    def from_dict(cls, data: dict) -> 'ClusterInfo':
         """
         Creates a ClusterInfo instance from a dictionary. Also handles the creation of nested PartitionInfo and EnergyCost instances.
         """
@@ -250,5 +250,6 @@ class ClusterInfo:
             # Optional parameters
             postcode=data.get("postcode"),
             texts_intro=data.get("texts_intro", {}),
-            default_unit_RSS=data.get("default_unit_RSS", "K")
+            default_unit_RSS=data.get("default_unit_RSS", "K"),
+            time_format=data.get("time_format", "%Y-%m-%dT%H:%M:%S"),
         )

@@ -44,12 +44,12 @@ class TestSlurmManager:
         Scenario: A job has sub-jobs with mixed states, i.e. some of them are completed and some still running. 
         In this case, the job must not be processed.
         """
-        test_config = {**self.test_config, "useCustomLogs": f'tests/testdata/slurm/raw_logs/single_job_mixed_states.txt'}
+        test_config = {**self.test_config, "useCustomLogs": 'tests/testdata/slurm/raw_logs/single_job_mixed_states.txt'}
         
         with open(os.path.join(test_config['useCustomLogs']), 'rb') as f:
             logs_raw = f.read() # Read custom logs
 
-        wm = SlurmManager(self.test_config, self.test_cluster_info, logs_raw)
+        wm = SlurmManager(self.test_config, ClusterInfo.from_dict(self.test_cluster_info), logs_raw)
 
         # Raises ValueError since no finished jobs found
         with pytest.raises(ValueError):

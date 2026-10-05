@@ -5,11 +5,12 @@
 
 import datetime
 import logging
+
 import pandas as pd
 
 from ga_core.ingestion.workload_managers.base import BaseWorkloadManager
-from ga_core.ingestion.workload_managers.slurm.utils import SlurmUtils
 from ga_core.ingestion.workload_managers.slurm.sacct_client import SacctClient
+from ga_core.ingestion.workload_managers.slurm.utils import SlurmUtils
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
                 self.config_data['endDay'],
                 self.config_data['all_users_access']
             )
-            logger.info(f"Successfully pulled raw logs.")
+            logger.info("Successfully pulled raw logs.")
         except Exception as e:
             logger.exception(f"Failed to pull logs using config {self.config_data}: {e}")
             raise RuntimeError(f"Failed to pull logs using config {self.config_data}: {e}") from e     
@@ -62,6 +63,8 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
 
         self.logs_df = self.filter_finished_jobs() # Keep only those jobs that have finished - i.e. contains a valid End date/ finished state
         logger.info(f"{len(self.logs_df)} rows remain after filtering for finished jobs")
+
+        time_format = self.cluster_info.time_format
 
         if self.logs_df.empty:
             logger.error(f"No finished jobs found for period {self.config_data['startDay']} to {self.config_data['endDay']}")
@@ -101,13 +104,13 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
 
             ### Parse datetimes - Submit, Start, End
             self.logs_df['SubmitDatetimeX'] = self.logs_df.Submit.apply(
-                lambda x: datetime.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S"))
+                lambda x: datetime.datetime.strptime(x, time_format))
             
             self.logs_df['StartDatetimeX'] = self.logs_df.Start.apply(
-                lambda x: datetime.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S") if pd.notnull(x) else pd.NaT)
+                lambda x: datetime.datetime.strptime(x, time_format) if pd.notnull(x) else pd.NaT)
             
             self.logs_df['EndDatetimeX'] = self.logs_df.End.apply(
-                lambda x: datetime.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S") if pd.notnull(x) else pd.NaT)
+                lambda x: datetime.datetime.strptime(x, time_format) if pd.notnull(x) else pd.NaT)
 
             ### Number of CPUs
             # e.g. here there is no cleaning necessary, so I just standardise the column name
@@ -127,7 +130,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
             self.logs_df['UserX'] = self.logs_df.User
 
             ### State
-            customSuccessStates_list = self.config_data["customSuccessStates"].split(',') if 'customSuccessStates' in self.config_data.keys() else []
+            customSuccessStates_list = self.config_data["customSuccessStates"].split(',') if 'customSuccessStates' in self.config_data else []
             self.logs_df['StateX'] = self.logs_df.State.apply(self.clean_State,
                                                             customSuccessStates_list=customSuccessStates_list)
 
@@ -186,7 +189,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
                 self.df_agg.loc[self.df_agg.PartitionTypeX == 'GPU', 'NGPUS_'] = 1  # TODO remove after a while
 
             # Sanity check (no GPU logged for CPU partitions and vice versa)
-            assert (self.df_agg.loc[self.df_agg.PartitionTypeX == 'CPU'].NGPUS_ == 0).all(), f"Found job(s) on a CPU partition with non-zero NGPUS_"
+            assert (self.df_agg.loc[self.df_agg.PartitionTypeX == 'CPU'].NGPUS_ == 0).all(), "Found job(s) on a CPU partition with non-zero NGPUS_"
 
             # Cancelled GPU jobs won't have any GPUs allocated if they didn't start
             foo = self.df_agg.loc[(self.df_agg.PartitionTypeX == 'GPU') & (self.df_agg.NGPUS_ == 0)]
@@ -219,8 +222,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
             #                    'CoreHoursChargedGPUX', 'TotalCPUtime2useX', 'TotalGPUtime2useX']] # DEBUGONLY
 
             ### Filter on working directory
-            if 'filterWD' in self.config_data.keys():
-                if self.config_data['filterWD'] is not None:
+            if 'filterWD' in self.config_data and self.config_data['filterWD'] is not None:
                     # FIXME: Doesn't work with symbolic links
                     self.df_agg = self.df_agg.loc[self.df_agg.WorkingDir_ == self.config_data['filterWD']]
 
@@ -228,15 +230,13 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
             self.df_agg.reset_index(inplace=True)
             self.df_agg['parentJobID'] = self.df_agg.single_jobID.apply(self.get_parent_jobID)
 
-            if 'filterJobIDs' in self.config_data.keys():
-                if self.config_data['filterJobIDs'] != 'all':
+            if 'filterJobIDs' in self.config_data and self.config_data['filterJobIDs'] != 'all':
                     list_jobs2keep = self.config_data['filterJobIDs'].split(',')
                     self.df_agg = self.df_agg.loc[self.df_agg.parentJobID.isin(list_jobs2keep)]
 
             ### Filter on Account
-            if 'filterAccount' in self.config_data.keys():
-                if self.config_data['filterAccount'] is not None:
-                    self.df_agg = self.df_agg.loc[self.df_agg.Account_ == self.config_data['filterAccount']]
+            if 'filterAccount' in self.config_data and self.config_data['filterAccount'] is not None:
+                self.df_agg = self.df_agg.loc[self.df_agg.Account_ == self.config_data['filterAccount']]
 
             self.df_agg_X = self.df_agg[[x for x in self.df_agg.columns if x[-1] == 'X']]
             

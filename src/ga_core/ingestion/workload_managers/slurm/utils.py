@@ -3,10 +3,12 @@
 # ------------------------------------------------------------------
 
 import datetime
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 from ga_core.utils import utils
+
 
 class SlurmUtils:
     """
