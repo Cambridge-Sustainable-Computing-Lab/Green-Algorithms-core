@@ -213,7 +213,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
             self.df_agg['NeededMemX'] = self.df_agg.apply(
                 self.calc_realMemNeeded,
                 granularity_memory_request=self.cluster_info.granularity_memory_request,
-                axis=1)
+                axis=1).astype('float64')
 
             ### Add memory waste information
             self.df_agg['memOverallocationFactorX'] = self.df_agg.apply(self.calc_memory_overallocation, axis=1)
