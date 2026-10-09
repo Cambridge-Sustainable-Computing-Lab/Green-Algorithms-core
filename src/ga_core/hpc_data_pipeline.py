@@ -6,15 +6,17 @@
 # 3. Stores the enriched data using a CIStorageBackend implementation (Optional)
 # ------------------------------------------------------------------
 
-import pandas as pd
 import logging
+
+import pandas as pd
+
 from ga_core.computation.carbon import CarbonCalculator
+from ga_core.computation.carbon_intensity.carbon_intensity import CarbonIntensityService
 from ga_core.computation.carbon_intensity.ci_store import CIStorageBackend
 from ga_core.computation.context_metrics import ContextMetricsCalculator
 from ga_core.computation.energy import EnergyCalculator
 from ga_core.data_models.cluster_info_model import ClusterInfo
 from ga_core.ingestion.workload_managers import BaseWorkloadManager
-from ga_core.computation.carbon_intensity.carbon_intensity import CarbonIntensityService
 from ga_core.utils import utils
 
 logger = logging.getLogger(__name__)
@@ -51,7 +53,7 @@ class HPCDataProcessor:
         """
         try:
             logger.info("Starting data extraction pipeline.")
-            if 'use_mock_agg_data' in self.config_data.keys(): # DEBUGONLY Create/use some mock jobs with different users
+            if 'use_mock_agg_data' in self.config_data: # DEBUGONLY Create/use some mock jobs with different users
                 return utils.get_mock_agg_data()
             
             ### Pull usage statistics from the workload manager
@@ -67,9 +69,8 @@ class HPCDataProcessor:
             utils.check_empty_results(df_agg, self.config_data)
 
             # Check that there is only one user's data if no admin right
-            if not self.config_data['all_users_access']:
-                if len(set(df_agg.UserX)) > 1:
-                    raise ValueError(f"'all_users_access' is False yet more than one user's logs was included")
+            if not self.config_data['all_users_access'] and len(set(df_agg.UserX)) > 1:
+                    raise ValueError("'all_users_access' is False yet more than one user's logs was included")
                 
             logger.info("Data extraction completed successfully.")
             return df_agg
