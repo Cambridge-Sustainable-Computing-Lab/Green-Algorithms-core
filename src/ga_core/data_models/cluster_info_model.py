@@ -7,6 +7,7 @@
 # ------------------------------------------------------------------
 
 from dataclasses import dataclass, field
+from typing import Optional
 
 from ga_core.utils import cluster_info_utils
 
@@ -40,8 +41,8 @@ class HardwareProfile:
     TDP: float
 
     # GPU specific
-    model_CPU: str | None = None
-    TDP_CPU: float | None = None
+    model_CPU: Optional[str] = None
+    TDP_CPU: Optional[float] = None
 
     # Validation
     def __post_init__(self):
@@ -56,7 +57,7 @@ class HardwareProfile:
                 raise ValueError(f"[cluster_info] GPU hardware profile {self.name} requires TDP_CPU to be a positive value.")
 
     @classmethod
-    def from_dict(cls, data: dict, name: str | None = None) -> 'HardwareProfile':
+    def from_dict(cls, data: dict, name: Optional[str] = None) -> 'HardwareProfile':
         """
         Creates a HardwareProfile instance from a dictionary.
         """
@@ -110,10 +111,10 @@ class PartitionInfo:
     homogenous: bool
 
     # if homogenous, must provide a hardware profile name or node list with a single entry
-    hardware_profile: str | None = None
+    hardware_profile: Optional[str] = None
 
     # required if not homogenous: each entry describes its own slice of hardware
-    node_list: list[NodeRange] | None = None
+    node_list: Optional[list[NodeRange]] = None
 
     def __post_init__(self):
         if self.homogenous:
@@ -195,7 +196,7 @@ class ClusterInfo:
     PUE: float
     CI: float
     energy_cost: EnergyCost
-    postcode: str | None = None
+    postcode: Optional[str] = None
     workload_manager: str = "slurm" # Defaulting to SLURM
     time_format: str = "%Y-%m-%dT%H:%M:%S"  # Default time format for logs
 

@@ -26,7 +26,7 @@ Divided primarily into two pipelines—**Ingestion** and **Computation**—it pr
 
 ## 📋 Requirements
 
-* **Python:** `>= 3.11`
+* **Python:** `>= 3.9`
 * **Core Dependencies:**
   * `pandas`
   * `numpy`
