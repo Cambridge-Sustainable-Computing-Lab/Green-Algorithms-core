@@ -86,7 +86,12 @@ class CarbonCalculator:
             hours = (day_end - day_start).total_seconds() / 3600
             day_avg_CI = daily_avg_CI.get(current_day.strftime('%d-%m-%Y'), None)
 
-            day_job_emissions.append(JobEmissionRecord(current_day, energy_per_hr, hours, day_avg_CI))
+            day_job_emissions.append(JobEmissionRecord(
+                date = current_day, 
+                energy_per_hr = energy_per_hr, 
+                hours_of_work = hours, 
+                carbon_intensity = day_avg_CI
+                ))
             
             # Advance to midnight of next day
             current_day = datetime.combine(current_day.date() + timedelta(days=1), time.min)
