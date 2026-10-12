@@ -7,6 +7,7 @@
 
 import pytest
 
+
 @pytest.fixture
 def config_data():
     return {
