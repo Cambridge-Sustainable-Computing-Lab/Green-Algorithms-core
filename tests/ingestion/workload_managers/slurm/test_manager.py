@@ -5,7 +5,10 @@
 # NOTE: Tests pertaining to similar functionality in SlurmUtils and SlurmManager should be grouped together in the same class
 # ------------------------------------------------------------------
 
+import csv
+import io
 import os
+from dataclasses import replace
 from datetime import datetime
 
 import pandas as pd
@@ -58,6 +61,39 @@ class TestSlurmManager:
         with pytest.raises(ValueError):
             wm.clean_logs()
 
+    def test_jobs_on_ignored_partitions(self):
+        """
+        Scenario: A job on an ignored partition has a finished step with no partition.
+        The parent job and all of its steps must be removed before aggregation.
+        """
+        test_config = {**self.test_config, "useCustomLogs": "tests/testdata/slurm/raw_logs/single_job_completed.txt"}
+        cluster_info = replace(self.test_cluster_info, partitions_to_ignore=["yew-himem"])
+        with open(test_config["useCustomLogs"], "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f, delimiter="|")
+            job = next(reader)
+
+        # Adding a job step (steps usually do not have a partition, but the parent job does)
+        step = {
+            **job,
+            "UID": "",
+            "User": "",
+            "JobID": f"{job['JobID']}.batch",
+            "JobName": "batch",
+            "Partition": "",
+            "MaxRSS": "",
+            "State": "COMPLETED",
+            "NodeList": "",
+        }
+        raw_logs = io.StringIO()
+        writer = csv.DictWriter(raw_logs, fieldnames=reader.fieldnames, delimiter="|", lineterminator="\n")
+        writer.writeheader()
+        writer.writerows([job, step])
+
+        wm = SlurmManager(test_config, cluster_info, raw_logs.getvalue().encode())
+
+        cleaned_logs = wm.clean_logs()
+
+        assert cleaned_logs.empty
 
     # Tests for SlurmManager.pull_logs(): responsible for pulling raw logs via `sacct`
     def test_pull_logs_calls_sacct_with_expected_args(self, monkeypatch, config_data):

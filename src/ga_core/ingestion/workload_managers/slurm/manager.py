@@ -137,111 +137,121 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
             ### Pull jobID
             self.logs_df['single_jobID'] = self.logs_df.JobID.apply(lambda x: x.split('.')[0])
 
-            ### Account
-            if 'Account' in self.logs_df.columns:
-                self.logs_df['Account_'] = self.logs_df.Account
-            else:
-                print('Using old logs, "Account" information not available.')  # TODO: remove this after a while
-                self.logs_df['Account_'] = ''
+            ### Filter jobs on ignored partitions
+            partitions_to_ignore = set(self.cluster_info.partitions_to_ignore)
+            if partitions_to_ignore:
+                ignored_job_ids = self.logs_df.loc[self.logs_df['PartitionX'].isin(partitions_to_ignore), 'single_jobID']
+                if not ignored_job_ids.empty:
+                    logger.info(f"Ignoring {ignored_job_ids.nunique()} jobs from partitions: {partitions_to_ignore}")
+                    self.logs_df = self.logs_df.loc[~self.logs_df['single_jobID'].isin(ignored_job_ids)].copy()
 
-            ### Aggregate per jobID
-            self.df_agg = self.logs_df.groupby('single_jobID').agg({
-                'TotalCPUtime_': 'max',
-                'CPUwallclocktime_': 'max',
-                'WallclockTimeX': 'max',
-                'ReqMemX': 'max',
-                'UsedMem_': 'max',
-                'NCPUS_': 'max',
-                'NGPUS_': 'max',
-                'NNodes_': 'max',
-                'PartitionX': lambda x: ''.join(x),
-                'JobName_': 'first',
-                'SubmitDatetimeX': 'min',
-                'StartDatetimeX': 'min',
-                'EndDatetimeX': 'min',
-                'WorkingDir_': 'first',
-                'StateX': 'min',
-                'Account_': 'first',
-                'UIDX': 'first',
-                'UserX': 'first',
-                "NodesList_": 'first',
-            })
+            if not self.logs_df.empty:
+                ### Account
+                if 'Account' in self.logs_df.columns:
+                    self.logs_df['Account_'] = self.logs_df.Account
+                else:
+                    print('Using old logs, "Account" information not available.')  # TODO: remove this after a while
+                    self.logs_df['Account_'] = ''
 
-            self.df_agg.loc[self.df_agg.StateX == -1, 'StateX'] = 1 # Turn StateX==-1 into 1 (customSuccessStates are considered successful i.e. 1)
+                ### Aggregate per jobID
+                self.df_agg = self.logs_df.groupby('single_jobID').agg({
+                    'TotalCPUtime_': 'max',
+                    'CPUwallclocktime_': 'max',
+                    'WallclockTimeX': 'max',
+                    'ReqMemX': 'max',
+                    'UsedMem_': 'max',
+                    'NCPUS_': 'max',
+                    'NGPUS_': 'max',
+                    'NNodes_': 'max',
+                    'PartitionX': lambda x: ''.join(x),
+                    'JobName_': 'first',
+                    'SubmitDatetimeX': 'min',
+                    'StartDatetimeX': 'min',
+                    'EndDatetimeX': 'min',
+                    'WorkingDir_': 'first',
+                    'StateX': 'min',
+                    'Account_': 'first',
+                    'UIDX': 'first',
+                    'UserX': 'first',
+                    "NodesList_": 'first',
+                })
 
-            ### Replace UsedMem_=-1 with memory requested (for when MaxRSS=NaN)
-            self.df_agg['UsedMem2_'] = self.df_agg.apply(self.clean_UsedMem, axis=1)
+                self.df_agg.loc[self.df_agg.StateX == -1, 'StateX'] = 1 # Turn StateX==-1 into 1 (customSuccessStates are considered successful i.e. 1)
 
-            ### Hardware profile per job, based on the partition and the node list
-            self.df_agg['HardwareProfileX'] = self.df_agg.apply(self.get_partition_hardware_profile, axis=1)
+                ### Replace UsedMem_=-1 with memory requested (for when MaxRSS=NaN)
+                self.df_agg['UsedMem2_'] = self.df_agg.apply(self.clean_UsedMem, axis=1)
 
-            ### Drop jobs where no hardware profile could be determined
-            missing_hw_profile = self.df_agg.HardwareProfileX.isna() | (self.df_agg.HardwareProfileX == '')
-            if missing_hw_profile.sum() > 0:
-                logger.warning(f"Dropping {missing_hw_profile.sum()} jobs with no matching hardware profile")
-            self.df_agg = self.df_agg.loc[~missing_hw_profile]
+                ### Hardware profile per job, based on the partition and the node list
+                self.df_agg['HardwareProfileX'] = self.df_agg.apply(self.get_partition_hardware_profile, axis=1)
 
-            ### Label as CPU or GPU partition
-            self.df_agg['PartitionTypeX'] = self.df_agg.HardwareProfileX.apply(self.set_partitionType)
+                ### Drop jobs where no hardware profile could be determined
+                missing_hw_profile = self.df_agg.HardwareProfileX.isna() | (self.df_agg.HardwareProfileX == '')
+                if missing_hw_profile.sum() > 0:
+                    logger.warning(f"Dropping {missing_hw_profile.sum()} jobs with no matching hardware profile")
+                self.df_agg = self.df_agg.loc[~missing_hw_profile]
 
-            # Just used to clean up with old logs:
-            if 'AllocTRES' not in self.logs_df.columns:
-                self.df_agg.loc[self.df_agg.PartitionTypeX == 'GPU', 'NGPUS_'] = 1  # TODO remove after a while
+                ### Label as CPU or GPU partition
+                self.df_agg['PartitionTypeX'] = self.df_agg.HardwareProfileX.apply(self.set_partitionType)
 
-            # Sanity check (no GPU logged for CPU partitions and vice versa)
-            assert (self.df_agg.loc[self.df_agg.PartitionTypeX == 'CPU'].NGPUS_ == 0).all(), "Found job(s) on a CPU partition with non-zero NGPUS_"
+                # Just used to clean up with old logs:
+                if 'AllocTRES' not in self.logs_df.columns:
+                    self.df_agg.loc[self.df_agg.PartitionTypeX == 'GPU', 'NGPUS_'] = 1  # TODO remove after a while
 
-            # Cancelled GPU jobs won't have any GPUs allocated if they didn't start
-            foo = self.df_agg.loc[(self.df_agg.PartitionTypeX == 'GPU') & (self.df_agg.NGPUS_ == 0)]
-            failed_gpu_jobs = foo.loc[foo.WallclockTimeX.dt.total_seconds() != 0]
-            assert failed_gpu_jobs.empty, (f"Found {len(failed_gpu_jobs)} GPU-partition job(s) with NGPUS_ == 0 but nonzero wallclock time")
+                # Sanity check (no GPU logged for CPU partitions and vice versa)
+                assert (self.df_agg.loc[self.df_agg.PartitionTypeX == 'CPU'].NGPUS_ == 0).all(), "Found job(s) on a CPU partition with non-zero NGPUS_"
 
-            ## Check that there is no missing UID/User
-            if self.df_agg.UIDX.isnull().sum() > 0:
-                logger.warning(f"{self.df_agg.UIDX.isnull().sum()} jobs have missing UIDs")
-            if self.df_agg.UserX.isnull().sum() > 0:
-                logger.warning(f"{self.df_agg.UserX.isnull().sum()} jobs have missing Usernames")
+                # Cancelled GPU jobs won't have any GPUs allocated if they didn't start
+                foo = self.df_agg.loc[(self.df_agg.PartitionTypeX == 'GPU') & (self.df_agg.NGPUS_ == 0)]
+                failed_gpu_jobs = foo.loc[foo.WallclockTimeX.dt.total_seconds() != 0]
+                assert failed_gpu_jobs.empty, (f"Found {len(failed_gpu_jobs)} GPU-partition job(s) with NGPUS_ == 0 but nonzero wallclock time")
 
-            ### add the usage time to use for calculations
-            self.df_agg['TotalCPUtime2useX'] = self.df_agg.apply(self.calc_CPUusage2use, axis=1)
-            self.df_agg['TotalGPUtime2useX'] = self.df_agg.apply(self.calc_GPUusage2use, axis=1)
+                ## Check that there is no missing UID/User
+                if self.df_agg.UIDX.isnull().sum() > 0:
+                    logger.warning(f"{self.df_agg.UIDX.isnull().sum()} jobs have missing UIDs")
+                if self.df_agg.UserX.isnull().sum() > 0:
+                    logger.warning(f"{self.df_agg.UserX.isnull().sum()} jobs have missing Usernames")
 
-            ### Calculate core-hours charged
-            self.df_agg[['CPUhoursChargedX', 'GPUhoursChargedX']] = self.df_agg.apply(self.calc_coreHoursCharged, axis=1, result_type='expand')
+                ### add the usage time to use for calculations
+                self.df_agg['TotalCPUtime2useX'] = self.df_agg.apply(self.calc_CPUusage2use, axis=1)
+                self.df_agg['TotalGPUtime2useX'] = self.df_agg.apply(self.calc_GPUusage2use, axis=1)
 
-            ### Calculate real memory need
-            self.df_agg['NeededMemX'] = self.df_agg.apply(
-                self.calc_realMemNeeded,
-                granularity_memory_request=self.cluster_info.granularity_memory_request,
-                axis=1).astype('float64')
+                ### Calculate core-hours charged
+                self.df_agg[['CPUhoursChargedX', 'GPUhoursChargedX']] = self.df_agg.apply(self.calc_coreHoursCharged, axis=1, result_type='expand')
 
-            ### Add memory waste information
-            self.df_agg['memOverallocationFactorX'] = self.df_agg.apply(self.calc_memory_overallocation, axis=1)
+                ### Calculate real memory need
+                self.df_agg['NeededMemX'] = self.df_agg.apply(
+                    self.calc_realMemNeeded,
+                    granularity_memory_request=self.cluster_info.granularity_memory_request,
+                    axis=1).astype('float64')
 
-            # foo = self.df_agg[['TotalCPUtime_', 'CPUwallclocktime_', 'WallclockTimeX', 'NCPUS_', 'CoreHoursChargedCPUX',
-            #                    'CoreHoursChargedGPUX', 'TotalCPUtime2useX', 'TotalGPUtime2useX']] # DEBUGONLY
+                ### Add memory waste information
+                self.df_agg['memOverallocationFactorX'] = self.df_agg.apply(self.calc_memory_overallocation, axis=1)
 
-            ### Filter on working directory
-            if 'filterWD' in self.config_data and self.config_data['filterWD'] is not None:
-                    # FIXME: Doesn't work with symbolic links
-                    self.df_agg = self.df_agg.loc[self.df_agg.WorkingDir_ == self.config_data['filterWD']]
+                # foo = self.df_agg[['TotalCPUtime_', 'CPUwallclocktime_', 'WallclockTimeX', 'NCPUS_', 'CoreHoursChargedCPUX',
+                #                    'CoreHoursChargedGPUX', 'TotalCPUtime2useX', 'TotalGPUtime2useX']] # DEBUGONLY
 
-            ### Filter on Job ID
-            self.df_agg.reset_index(inplace=True)
-            self.df_agg['parentJobID'] = self.df_agg.single_jobID.apply(self.get_parent_jobID)
+                ### Filter on working directory
+                if 'filterWD' in self.config_data and self.config_data['filterWD'] is not None:
+                        # FIXME: Doesn't work with symbolic links
+                        self.df_agg = self.df_agg.loc[self.df_agg.WorkingDir_ == self.config_data['filterWD']]
 
-            if 'filterJobIDs' in self.config_data and self.config_data['filterJobIDs'] != 'all':
-                    list_jobs2keep = self.config_data['filterJobIDs'].split(',')
-                    self.df_agg = self.df_agg.loc[self.df_agg.parentJobID.isin(list_jobs2keep)]
+                ### Filter on Job ID
+                self.df_agg.reset_index(inplace=True)
+                self.df_agg['parentJobID'] = self.df_agg.single_jobID.apply(self.get_parent_jobID)
 
-            ### Filter on Account
-            if 'filterAccount' in self.config_data and self.config_data['filterAccount'] is not None:
-                self.df_agg = self.df_agg.loc[self.df_agg.Account_ == self.config_data['filterAccount']]
+                if 'filterJobIDs' in self.config_data and self.config_data['filterJobIDs'] != 'all':
+                        list_jobs2keep = self.config_data['filterJobIDs'].split(',')
+                        self.df_agg = self.df_agg.loc[self.df_agg.parentJobID.isin(list_jobs2keep)]
 
-            self.df_agg_X = self.df_agg[[x for x in self.df_agg.columns if x[-1] == 'X']]
-            
-            logger.info(f"clean_logs produced {len(self.df_agg_X)} aggregated job rows")
-            return self.df_agg_X
+                ### Filter on Account
+                if 'filterAccount' in self.config_data and self.config_data['filterAccount'] is not None:
+                    self.df_agg = self.df_agg.loc[self.df_agg.Account_ == self.config_data['filterAccount']]
+
+                self.df_agg_X = self.df_agg[[x for x in self.df_agg.columns if x[-1] == 'X']]
+                
+                logger.info(f"clean_logs produced {len(self.df_agg_X)} aggregated job rows")
+                return self.df_agg_X
+            return self.logs_df
 
     def validate_raw_logs(self, logs_raw: bytes = None):
         if logs_raw:

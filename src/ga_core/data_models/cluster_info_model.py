@@ -202,6 +202,7 @@ class ClusterInfo:
     postcode: Optional[str] = None
     workload_manager: str = "slurm" # Defaulting to SLURM
     time_format: str = "%Y-%m-%dT%H:%M:%S"  # Default time format for logs
+    partitions_to_ignore: list[str] = field(default_factory=list)
 
     # Optional parameters if the html output is used.
     texts_intro: dict[str, str] = field(default_factory=dict)
@@ -256,6 +257,7 @@ class ClusterInfo:
                 texts_intro=data.get("texts_intro", {}),
                 default_unit_RSS=data.get("default_unit_RSS", "K"),
                 time_format=data.get("time_format", "%Y-%m-%dT%H:%M:%S"),
+                partitions_to_ignore=data.get("partitions_to_ignore", [])
             )
         except KeyError as e:
             raise ValueError(f"[cluster_info] Missing required configuration field: {e.args[0]}") from e
