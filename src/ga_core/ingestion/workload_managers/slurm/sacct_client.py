@@ -21,7 +21,7 @@ class SacctClient:
             ]
     
     @classmethod
-    def pull_logs_by_time(cls, startDay, endDay, all_users=False):
+    def pull_logs_by_time(cls, startDay, endDay, all_users=False, include_jobsteps=True):
         """
         Run the command line to pull usage from the workload manager by time.
         All Jobs started between the given start date and end date are pulled.
@@ -31,6 +31,7 @@ class SacctClient:
             startDay (str): The start date in the format "YYYY-MM-DD".
             endDay (str): The end date in the format "YYYY-MM-DD".
             all_users (bool): Whether to pull logs for all users i.e. in case of Admin access. Default is False (pull logs for the current user only).
+            include_jobsteps (bool): Whether to include job steps in the logs. Default is True.
         """
         try:
             bash_com_full = cls.bash_com + [
@@ -40,6 +41,9 @@ class SacctClient:
 
             if all_users:
                 bash_com_full.append("--allusers")
+
+            if not include_jobsteps:
+                bash_com_full.append("-X")
 
             logs = subprocess.run(bash_com_full, capture_output=True)
             return logs.stdout   
