@@ -16,7 +16,7 @@ classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
 dependencies = [
-    "pandas==2.3.2",
+    "pandas (==2.3.3)",
     "numpy>=1.23.2,<2.1.0; python_version < '3.11'",
     "numpy==2.3.2; python_version >= '3.11'",
     "requests==2.32.3",

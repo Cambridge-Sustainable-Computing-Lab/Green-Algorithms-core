@@ -32,6 +32,9 @@ Divided primarily into two pipelines—**Ingestion** and **Computation**—it pr
   * `numpy`
   * `requests`
 
+> [!NOTE]
+> We recommend using the Python version 3.14 but the dashboard is compatible from Python 3.9 onwards depending on what version is available in your environment. Please note that  Python 3.9 and 3.10 are now deprecated, more info on Python versions [here](https://devguide.python.org/versions/).
+
 ---
 
 ## 📥 Installation
