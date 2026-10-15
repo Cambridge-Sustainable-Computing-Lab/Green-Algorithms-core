@@ -10,6 +10,7 @@ import pandas as pd
 
 from ga_core.ingestion.workload_managers.base import BaseWorkloadManager
 from ga_core.ingestion.workload_managers.slurm.sacct_client import SacctClient
+from ga_core.ingestion.workload_managers.slurm.sacct_schema import SacctSchema
 from ga_core.ingestion.workload_managers.slurm.utils import SlurmUtils
 
 logger = logging.getLogger(__name__)
@@ -267,7 +268,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
             if not lines:
                 raise ValueError("logs_raw contains no non-empty lines")
             header = lines[0].split('|')
-            missing = [col for col in SacctClient.sacct_fields if col not in header]
+            missing = [col for col in SacctSchema.get_required_fields() if col not in header]
             if missing:
                 raise ValueError(f"logs_raw is missing required column(s): {missing}")
 
