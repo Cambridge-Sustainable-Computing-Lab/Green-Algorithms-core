@@ -4,10 +4,16 @@
 # Energy is estimated in a different class.
 # ------------------------------------------------------------------
 
-import pandas as pd
+import logging
 from datetime import datetime, time, timedelta
+
+import pandas as pd
+
 from ga_core.data_models.cluster_info_model import ClusterInfo
 from ga_core.data_models.job_emissions_record import JobEmissionRecord
+
+logger = logging.getLogger(__name__)
+
 
 class CarbonCalculator:
     def __init__(self, cluster_info: ClusterInfo, daily_avg_CI: dict = None):
@@ -58,6 +64,13 @@ class CarbonCalculator:
 
         start = row['StartDatetimeX']
         end = row['EndDatetimeX']
+        if pd.isna(start) or pd.isna(end):
+            logger.warning(f"Skipping carbon allocation for job with missing start or end time: start={start}, end={end}")
+            return 0.0
+        if end < start:
+            logger.warning(f"Skipping carbon allocation for job with end time before start time: start={start}, end={end}")
+            return 0.0
+
         energy = row[f'energy{suffix}']
         tot_duration_hours = row['WallclockTimeX'].total_seconds() / 3600
         # Assuming energy is consumed uniformly across the job duration
@@ -73,7 +86,12 @@ class CarbonCalculator:
             hours = (day_end - day_start).total_seconds() / 3600
             day_avg_CI = daily_avg_CI.get(current_day.strftime('%d-%m-%Y'), None)
 
-            day_job_emissions.append(JobEmissionRecord(current_day, energy_per_hr, hours, day_avg_CI))
+            day_job_emissions.append(JobEmissionRecord(
+                date = current_day, 
+                energy_per_hr = energy_per_hr, 
+                hours_of_work = hours, 
+                carbon_intensity = day_avg_CI
+                ))
             
             # Advance to midnight of next day
             current_day = datetime.combine(current_day.date() + timedelta(days=1), time.min)

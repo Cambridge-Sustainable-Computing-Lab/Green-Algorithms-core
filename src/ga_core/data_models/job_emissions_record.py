@@ -5,13 +5,15 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Optional
+
 
 @dataclass
 class JobEmissionRecord:
     """Represents a job's energy usage on a specific date."""
     date: datetime
     hours_of_work: float
-    carbon_intensity: float | None
+    carbon_intensity: Optional[float]
     energy: float = field(init=False) # Not passed when creating the object, but calculated in __post_init__ later
     energy_per_hr: float = field(repr=False) # Intermediate value - not included in representation of the data class
 

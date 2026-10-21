@@ -7,7 +7,7 @@
 # ------------------------------------------------------------------
 
 from dataclasses import dataclass, field
-from typing import Optional, Dict
+from typing import Optional
 
 from ga_core.utils import cluster_info_utils
 
@@ -57,7 +57,7 @@ class HardwareProfile:
                 raise ValueError(f"[cluster_info] GPU hardware profile {self.name} requires TDP_CPU to be a positive value.")
 
     @classmethod
-    def from_dict(cls, data: Dict, name: Optional[str] = None) -> 'HardwareProfile':
+    def from_dict(cls, data: dict, name: Optional[str] = None) -> 'HardwareProfile':
         """
         Creates a HardwareProfile instance from a dictionary.
         """
@@ -89,7 +89,7 @@ class NodeRange:
         return lower <= int(index_str) <= upper
     
     @classmethod
-    def from_dict(cls, data: Dict, hardware_profiles: Dict[str, HardwareProfile]) -> 'NodeRange':
+    def from_dict(cls, data: dict, hardware_profiles: dict[str, HardwareProfile]) -> 'NodeRange':
         """
         Creates a NodeRange instance from a dictionary and validates that the referenced hardware profile exists.
         """
@@ -139,32 +139,35 @@ class PartitionInfo:
                 )
 
     @classmethod
-    def from_dict(cls, name: str, data: Dict, hardware_profiles: Dict[str, HardwareProfile]) -> 'PartitionInfo':
+    def from_dict(cls, name: str, data: dict, hardware_profiles: dict[str, HardwareProfile]) -> 'PartitionInfo':
         """
         Creates a PartitionInfo instance from a dictionary.
         """
-        data = dict(data)
+        try:
+            data = dict(data)
 
-        hardware_profile_ref = data.pop("hardware_profile", None)
-        hardware_profile = (
-            cluster_info_utils.check_hardware_profile_ref(hardware_profile_ref, hardware_profiles, context=f"Partition '{name}'") 
-            if hardware_profile_ref is not None
-            else None
-        )
+            hardware_profile_ref = data.pop("hardware_profile", None)
+            hardware_profile = (
+                cluster_info_utils.check_hardware_profile_ref(hardware_profile_ref, hardware_profiles, context=f"Partition '{name}'") 
+                if hardware_profile_ref is not None
+                else None
+            )
 
-        node_list_data = data.pop("node_list", None)
-        node_list = (
-            [NodeRange.from_dict(nr, hardware_profiles) for nr in node_list_data]
-            if node_list_data is not None
-            else None
-        )
+            node_list_data = data.pop("node_list", None)
+            node_list = (
+                [NodeRange.from_dict(nr, hardware_profiles) for nr in node_list_data]
+                if node_list_data is not None
+                else None
+            )
 
-        return cls(
-            name=name,
-            hardware_profile=hardware_profile,
-            node_list=node_list,
-            **data,  # remaining fields
-        )
+            return cls(
+                name=name,
+                hardware_profile=hardware_profile,
+                node_list=node_list,
+                **data,  # remaining fields
+            )
+        except (KeyError, TypeError, ValueError) as e:
+            raise ValueError(f"[cluster_info] Invalid partition '{name}': {e}") from e
 
             
 @dataclass
@@ -191,16 +194,18 @@ class ClusterInfo:
     institution: str
     cluster_name: str
     granularity_memory_request: int
-    partitions: Dict[str, PartitionInfo]
-    hardware_profiles: Dict[str, HardwareProfile]
+    partitions: dict[str, PartitionInfo]
+    hardware_profiles: dict[str, HardwareProfile]
     PUE: float
     CI: float
     energy_cost: EnergyCost
     postcode: Optional[str] = None
     workload_manager: str = "slurm" # Defaulting to SLURM
+    time_format: str = "%Y-%m-%dT%H:%M:%S"  # Default time format for logs
+    partitions_to_ignore: list[str] = field(default_factory=list)
 
     # Optional parameters if the html output is used.
-    texts_intro: Dict[str, str] = field(default_factory=dict)
+    texts_intro: dict[str, str] = field(default_factory=dict)
     default_unit_RSS: str = "K"
 
     # Validation
@@ -221,34 +226,42 @@ class ClusterInfo:
             raise ValueError("[cluster_info] At least one hardware profile must be defined")
         
     @classmethod
-    def from_dict(cls, data: Dict) -> 'ClusterInfo':
+    def from_dict(cls, data: dict) -> 'ClusterInfo':
         """
         Creates a ClusterInfo instance from a dictionary. Also handles the creation of nested PartitionInfo and EnergyCost instances.
         """
-        hardware_profiles = {
-            name: HardwareProfile.from_dict(info, name=name)
-            for name, info in data.get("hardware_profiles", {}).items()
-        }
+        try:
+            hardware_profiles = {
+                name: HardwareProfile.from_dict(info, name=name)
+                for name, info in data.get("hardware_profiles", {}).items()
+            }
 
-        partitions = {
-            name: PartitionInfo.from_dict(name, info, hardware_profiles)
-            for name, info in data.get("partitions", {}).items()
-        }
-        energy_cost = EnergyCost(**data["energy_cost"])
-        
-        return cls(
-            institution=data["institution"],
-            cluster_name=data["cluster_name"],
-            workload_manager=data.get("workload_manager", "slurm").lower(),
-            granularity_memory_request=data["granularity_memory_request"],
-            partitions=partitions,
-            hardware_profiles=hardware_profiles,
-            PUE=data["PUE"],
-            CI=data["CI"],
-            energy_cost=energy_cost,
+            partitions = {
+                name: PartitionInfo.from_dict(name, info, hardware_profiles)
+                for name, info in data.get("partitions", {}).items()
+            }
+            energy_cost = EnergyCost(**data["energy_cost"])
+            return cls(
+                institution=data["institution"],
+                cluster_name=data["cluster_name"],
+                workload_manager=data.get("workload_manager", "slurm").lower(),
+                granularity_memory_request=data["granularity_memory_request"],
+                partitions=partitions,
+                hardware_profiles=hardware_profiles,
+                PUE=data["PUE"],
+                CI=data["CI"],
+                energy_cost=energy_cost,
 
-            # Optional parameters
-            postcode=data.get("postcode"),
-            texts_intro=data.get("texts_intro", {}),
-            default_unit_RSS=data.get("default_unit_RSS", "K")
-        )
+                # Optional parameters
+                postcode=data.get("postcode"),
+                texts_intro=data.get("texts_intro", {}),
+                default_unit_RSS=data.get("default_unit_RSS", "K"),
+                time_format=data.get("time_format", "%Y-%m-%dT%H:%M:%S"),
+                partitions_to_ignore=data.get("partitions_to_ignore", [])
+            )
+        except KeyError as e:
+            raise ValueError(f"[cluster_info] Missing required configuration field: {e.args[0]}") from e
+        except (TypeError, ValueError) as e:
+            if str(e).startswith("[cluster_info]"): # catch and re-raise exception
+                raise
+            raise ValueError(f"[cluster_info] Invalid cluster configuration: {e}") from e
