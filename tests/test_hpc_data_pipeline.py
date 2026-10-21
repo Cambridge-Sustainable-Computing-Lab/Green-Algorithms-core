@@ -1,10 +1,13 @@
 # tests/test_pipeline_end_to_end.py
 
 import os
-import pytest
+
 import pandas as pd
+import pytest
+
 from ga_core.hpc_data_pipeline import HPCDataProcessor
-from tests.helpers import load_expected_csv
+from tests import helpers
+
 
 class TestHPCDataPipeline:
     """
@@ -52,7 +55,7 @@ class TestHPCDataPipeline:
         extracted_df = processor.extract_data(logs_raw)
 
         result = processor.enrich_data(extracted_df)
-        expected = load_expected_csv(f"tests/testdata/{self.wm}/expected/single_job_completed_expected.csv")
+        expected = helpers.load_expected_csv(f"tests/testdata/{self.wm}/expected/single_job_completed_expected.csv")
         pd.testing.assert_frame_equal(
         result.reset_index(drop=True),
         expected[result.columns].reset_index(drop=True),
@@ -104,7 +107,7 @@ class TestHPCDataPipeline:
         
         extracted_df = processor.extract_data(logs_raw)
         result = processor.enrich_data(extracted_df)
-        expected = load_expected_csv(f"tests/testdata/{self.wm}/expected/single_job_failed_expected.csv")
+        expected = helpers.load_expected_csv(f"tests/testdata/{self.wm}/expected/single_job_failed_expected.csv")
         pd.testing.assert_frame_equal(
         result.reset_index(drop=True),
         expected[result.columns].reset_index(drop=True),
@@ -138,7 +141,7 @@ class TestHPCDataPipeline:
         extracted_df = processor.extract_data(logs_raw)
 
         result = processor.enrich_data(extracted_df)
-        expected = load_expected_csv(f"tests/testdata/{self.wm}/expected/multi_nodes_list_expected.csv")
+        expected = helpers.load_expected_csv(f"tests/testdata/{self.wm}/expected/multi_nodes_list_expected.csv")
         pd.testing.assert_frame_equal(
         result.reset_index(drop=True),
         expected[result.columns].reset_index(drop=True),

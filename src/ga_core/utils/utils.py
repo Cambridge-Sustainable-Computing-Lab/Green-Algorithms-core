@@ -3,10 +3,13 @@
 # ------------------------------------------------------------------
 
 import datetime
-from io import BytesIO
 import os
 import sys
+from io import BytesIO
+from typing import Optional
+
 import pandas as pd
+
 
 def concat_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
     """
@@ -21,7 +24,7 @@ def concat_dataframes(dfs: list[pd.DataFrame]) -> pd.DataFrame:
     
     return pd.concat(dfs, ignore_index=True)
 
-def convert2dataframe(df_raw: bytes, types: dict | None = None, delimiter="|"):
+def convert2dataframe(df_raw: bytes, types: Optional[dict] = None, delimiter="|"):
     """
     Convert raw logs output into a pandas DataFrame.
     Parameters:
