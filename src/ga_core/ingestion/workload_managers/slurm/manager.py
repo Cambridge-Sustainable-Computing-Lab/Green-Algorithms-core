@@ -204,7 +204,7 @@ class SlurmManager(SlurmUtils, BaseWorkloadManager, manager_type="slurm"):
 
                 # Cancelled GPU jobs won't have any GPUs allocated if they didn't start
                 foo = self.df_agg.loc[(self.df_agg.PartitionTypeX == 'GPU') & (self.df_agg.NGPUS_ == 0)]
-                failed_gpu_jobs = foo.loc[foo.WallclockTimeX.dt.total_seconds() != 0]
+                unallocated_gpu_jobs = foo.loc[foo.WallclockTimeX.dt.total_seconds() != 0]
                 if failed_gpu_jobs.empty:
                     logger.warning(f"Found {len(failed_gpu_jobs)} GPU-partition job(s) with NGPUS_ == 0 but nonzero wallclock time")
 
