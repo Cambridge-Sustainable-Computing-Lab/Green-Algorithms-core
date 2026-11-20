@@ -201,8 +201,8 @@ class SlurmUtils:
         if x.PartitionTypeX != 'GPU':
             return datetime.timedelta(0)
         if x.WallclockTimeX.total_seconds() > 0:
-            if x.NGPUS_ != 0:
-                logger.warning(f"Job with nonzero wallclock time but NGPUS_ == 0")
+            if x.NGPUS_ == 0:
+                logger.warning("Job with nonzero wallclock time but NGPUS_ == 0")
         return x.WallclockTimeX * x.NGPUS_  # NB assuming usage factor of 100% for GPUs
 
     def calc_coreHoursCharged(self, x):
